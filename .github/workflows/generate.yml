@@ -1,0 +1,29 @@
+name: Generate Final
+
+on:
+  workflow_dispatch:
+    inputs:
+      username:
+        required: true
+      password:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          python update_credentials.py "${{ github.event.inputs.username }}" "${{ github.event.inputs.password }}"
+      - run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add final.m3u
+          git commit -m "update credentials" || echo "no changes"
+          git push
