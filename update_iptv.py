@@ -1,79 +1,81 @@
 import asyncio
-import os
 import random
 from playwright.async_api import async_playwright
 
 async def run_scraper():
     async with async_playwright() as p:
-        # التغيير الجوهري: استخدام Firefox بدلاً من Chromium
-        browser = await p.firefox.launch(headless=True)
+        # هنرجع لـ Chromium بس بإعدادات "صايعة" المرة دي
+        browser = await p.chromium.launch(headless=True)
         
-        # إعدادات متقدمة للهوية
+        # إعدادات Context بتوحي إننا "مستخدم حقيقي" جاي من بحث جوجل
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-            viewport={'width': 1920, 'height': 1080},
-            locale="en-US",
-            timezone_id="Europe/London"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            extra_http_headers={
+                "Referer": "https://www.google.com/",
+                "Accept-Language": "en-US,en;q=0.9"
+            }
         )
         
         page = await context.new_page()
 
-        # حقن سكريبت التخفي اليدوي
+        # إخفاء هوية البوت تماماً
         await page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            window.chrome = {runtime: {}};
         """)
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
-            print(f"Connecting to {url} via Firefox...")
-            # الانتظار حتى 'commit' لتقليل احتمالية الـ Timeout
+            print("Targeting site with Google Referer...")
+            # المرة دي هندخل ببطء ونعمل محاكاة انتظار
             await page.goto(url, wait_until="commit", timeout=90000)
             
-            # محاكاة بشرية: انتظار عشوائي وحركة بسيطة
-            await asyncio.sleep(random.uniform(5, 10))
-            await page.mouse.move(random.randint(100, 500), random.randint(100, 500))
+            # حركة عشوائية للماوس فوق مكان الـ Turnstile لإجباره على التحميل
+            print("Simulating human movement over the widget area...")
+            await page.mouse.move(300, 400)
+            await asyncio.sleep(5)
+            await page.mouse.wheel(0, 100)
 
-            print("Waiting for Turnstile to unlock...")
+            # محاولة "التكتكة" داخل الـ Iframe لو موجود
+            # Cloudflare Turnstile غالباً بيتحط جوه iframe
+            frames = page.frames
+            for frame in frames:
+                if "cloudflare" in frame.url:
+                    print("Cloudflare frame detected! Trying to interact...")
+                    await page.mouse.click(300, 450) # ضغطة في منطقة الـ widget
+
+            print("Waiting for Turnstile callback...")
             
-            # مراقبة الزر برمجياً بمهلة 3 دقائق
-            create_btn = page.locator("#create-btn")
+            # مراقبة الزرار: هل الـ disabled هتشال؟
+            # زودنا الوقت لـ 4 دقائق لأن السيرفرات تقيلة
             await page.wait_for_function(
-                "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
-                timeout=180000
+                "() => { const b = document.querySelector('#create-btn'); return b && !b.disabled; }",
+                timeout=240000
             )
 
-            print("Button Unlocked! Clicking...")
-            # نقرة بشرية مع تأخير بسيط
-            await create_btn.click(delay=random.randint(100, 500))
+            print("Success! Button unlocked.")
+            await page.click("#create-btn")
 
-            # انتظار صفحة النتائج
+            # استخراج البيانات
             await page.wait_for_selector("input[readonly]", timeout=60000)
-            
             inputs = await page.locator("input[readonly]").all()
-            if len(inputs) >= 3:
-                username = await inputs[1].get_attribute("value")
-                password = await inputs[2].get_attribute("value")
-                
-                print(f"✅ Extracted: {username}")
-                
+            
+            user = await inputs[1].get_attribute("value")
+            pw = await inputs[2].get_attribute("value")
+            
+            if user and pw:
+                print(f"Captured: {user}")
                 with open("base.m3u", "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                final = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
-                
+                    data = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", pw)
                 with open("final.m3u", "w", encoding="utf-8") as f:
-                    f.write(final)
-                print("final.m3u updated.")
-            else:
-                raise Exception("Data fields not found after click.")
-
+                    f.write(data)
+                print("final.m3u is ready.")
+            
         except Exception as e:
-            print(f"❌ Error Detail: {e}")
-            if not page.is_closed():
-                await page.screenshot(path="cloudflare_status.png", full_page=True)
+            print(f"Critical Failure: {e}")
+            await page.screenshot(path="cloudflare_status.png", full_page=True)
             exit(1)
-        
         finally:
             await browser.close()
 
