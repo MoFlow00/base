@@ -11,16 +11,15 @@ async def run_scraper():
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--window-size=1920,1080"
+                "--disable-dev-shm-usage"
             ]
         )
         
-        # إنشاء سياق متصفح مع User-Agent عشوائي وحقيقي
+        # تصحيح الخطأ: تغيير languages إلى locale
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             viewport={'width': 1920, 'height': 1080},
-            languages=["en-US", "en"],
+            locale="en-US", # تم التصحيح هنا
             color_scheme='dark'
         )
         
@@ -30,45 +29,40 @@ async def run_scraper():
         await page.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
             window.chrome = { runtime: {} };
-            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
             Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
         """)
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
-            print(f"Opening {url}...")
-            # الانتقال للصفحة ببطء لمحاكاة البشر
+            print(f"Connecting to {url}...")
+            # استخدام commit لتجنب تعليق الشبكة في GitHub Actions
             await page.goto(url, wait_until="commit", timeout=90000)
-            await asyncio.sleep(random.uniform(3, 6))
+            await asyncio.sleep(random.uniform(5, 8))
 
-            print("Simulating human activity to trigger Turnstile...")
-            # التحرك في الصفحة وتحريك الماوس
-            await page.mouse.move(random.randint(100, 500), random.randint(100, 500))
-            await page.evaluate("window.scrollTo(0, 200)")
+            print("Simulating activity...")
+            await page.mouse.move(random.randint(100, 600), random.randint(100, 600))
+            await page.evaluate("window.scrollTo(0, 300)")
             await asyncio.sleep(2)
-            await page.evaluate("window.scrollTo(0, 0)")
 
-            print("Waiting for button to unlock (max 120s)...")
+            print("Waiting for Turnstile to unlock the button...")
             
-            # محاولة تفعيل الزر برمجياً إذا علق الـ UI (ولكن Cloudflare قد يرفضه)
-            # سننتظر التفعيل الطبيعي أولاً
+            # فحص حالة الزر برمجياً
             try:
                 await page.wait_for_function(
                     "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
-                    timeout=120000
+                    timeout=150000 
                 )
             except:
-                print("Button didn't unlock naturally. Site might be blocking GitHub IP.")
-                # محاولة أخيرة: أخذ لقطة شاشة للـ Debug
+                print("Button remains locked. Cloudflare might be blocking the IP.")
                 await page.screenshot(path="cloudflare_status.png", full_page=True)
-                raise Exception("Cloudflare blocked the Turnstile widget.")
+                raise Exception("Turnstile verification failed or timed out.")
 
             print("Button Unlocked! Clicking...")
             await page.click("#create-btn")
 
             # انتظار صفحة النتائج
-            await page.wait_for_selector("input[readonly]", timeout=45000)
+            await page.wait_for_selector("input[readonly]", timeout=60000)
             
             inputs = await page.locator("input[readonly]").all()
             if len(inputs) >= 3:
@@ -77,6 +71,7 @@ async def run_scraper():
                 
                 print(f"✅ Success! Captured: {username}")
                 
+                # قراءة base.m3u وتحديثه
                 with open("base.m3u", "r", encoding="utf-8") as f:
                     content = f.read()
 
@@ -84,13 +79,15 @@ async def run_scraper():
                 
                 with open("final.m3u", "w", encoding="utf-8") as f:
                     f.write(final)
-                print("File final.m3u updated.")
+                print("final.m3u generated successfully.")
             else:
-                print("❌ Data fields not found.")
+                print("❌ Result fields not found.")
 
         except Exception as e:
-            print(f"❌ Error: {e}")
-            await page.screenshot(path="cloudflare_status.png", full_page=True)
+            print(f"❌ Error Detail: {e}")
+            # أخذ لقطة شاشة للتشخيص
+            if not page.is_closed():
+                await page.screenshot(path="cloudflare_status.png", full_page=True)
             exit(1)
         
         finally:
