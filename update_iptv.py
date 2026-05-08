@@ -1,73 +1,77 @@
-# FILE: update_iptv.py
-
 import asyncio
 import os
 from playwright.async_api import async_playwright
 
 async def run_scraper():
     async with async_playwright() as p:
-        # تشغيل المتصفح بوضع Headless للعمل على سيرفرات GitHub
+        # تشغيل المتصفح مع إعدادات متقدمة
         browser = await p.chromium.launch(headless=True)
+        # استخدام إعدادات متصفح كاملة
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            viewport={'width': 1920, 'height': 1080},
+            has_touch=True
         )
+        
         page = await context.new_page()
 
-        # تجاوز كشف البوت يدوياً (Manual Stealth) لتجنب حظر GitHub IPs
+        # تجاوز كشف البوت (Stealth)
         await page.add_init_script("""
             Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
             window.chrome = { runtime: {} };
-            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
         """)
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
             print(f"Navigating to {url}...")
-            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            # الانتظار حتى استقرار الشبكة تماماً
+            await page.goto(url, wait_until="networkidle", timeout=60000)
 
-            # انتظار تفعيل الزر (Turnstile Check)
-            print("Waiting for credentials to generate...")
+            # حركة عشوائية للماوس لمحاكاة نشاط بشري
+            await page.mouse.move(100, 100)
+            await asyncio.sleep(2)
+            await page.mouse.move(400, 400)
+
+            print("Waiting for Cloudflare Turnstile to unlock...")
+            
+            # محاولة الانتظار لظهار الزرار
+            create_btn = page.locator("#create-btn")
+            
+            # زيادة المهلة لـ 3 دقائق احتياطياً
             await page.wait_for_function(
                 "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
-                timeout=120000
+                timeout=180000 
             )
 
-            await page.click("#create-btn")
-            await page.wait_for_selector("input[readonly]", timeout=30000)
+            print("Button unlocked! Clicking...")
+            await create_btn.click()
+
+            # انتظار ظهور النتائج
+            await page.wait_for_selector("input[readonly]", timeout=45000)
             
             inputs = await page.locator("input[readonly]").all()
-            
-            # استخراج اليوزر والباسورد من الصفحة
             username = await inputs[1].get_attribute("value")
             password = await inputs[2].get_attribute("value")
 
             if username and password:
-                print(f"Success! Username: {username}, Password: {password}")
-
-                # قراءة الملف الأساسي base.m3u
-                if not os.path.exists("base.m3u"):
-                    print("Error: base.m3u not found!")
-                    return
-
+                print(f"Extracted: {username}")
                 with open("base.m3u", "r", encoding="utf-8") as f:
                     content = f.read()
 
-                # استبدال الـ placeholders
-                updated_content = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
+                updated = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
 
-                # كتابة الملف النهائي final.m3u
                 with open("final.m3u", "w", encoding="utf-8") as f:
-                    f.write(updated_content)
-                
-                print("final.m3u updated.")
-            else:
-                print("Failed to capture credentials.")
-
+                    f.write(updated)
+                print("final.m3u generated.")
+            
         except Exception as e:
-            print(f"Error: {e}")
-            # أخذ لقطة شاشة للـ Debugging في حالة الفشل على GitHub Actions
-            await page.screenshot(path="debug_github.png")
+            print(f"Fatal Error: {e}")
+            # تصوير الشاشة عشان نعرف Cloudflare واقف عند إيه
+            await page.screenshot(path="cloudflare_status.png")
+            print("Screenshot saved: cloudflare_status.png")
+            # إنهاء العملية بـ Error code عشان الأكشن ميكملش
+            exit(1) 
         
         finally:
             await browser.close()
