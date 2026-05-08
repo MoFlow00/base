@@ -2,14 +2,15 @@ name: Auto Update IPTV Credentials
 
 on:
   schedule:
+    # التشغيل كل 23 ساعة (تقريباً مرة يومياً بفارق ساعة)
     - cron: '0 */23 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # يتيح لك تشغيل الأكشن يدوياً للتجربة
 
 jobs:
   scrape-and-update:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # ضروري للسماح للأكشن بعمل Push للملفات
 
     steps:
       - name: Checkout Code
@@ -23,23 +24,27 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install playwright
-          playwright install chromium
+          # تثبيت محرك Firefox بدلاً من Chromium لتخطي حماية Cloudflare
+          playwright install firefox
 
       - name: Run Scraper
+        # تشغيل السكربت الذي يقوم بعملية السحب والتحديث
         run: python update_iptv.py
 
       - name: Upload Debug Screenshot on Failure
+        # سيتم رفع الصورة فقط في حالة فشل السكربت لتشخيص المشكلة
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: cloudflare-debug
+          name: firefox-debug-screenshot
           path: cloudflare_status.png
 
-      - name: Push Changes
+      - name: Commit and Push Changes
+        # سيتم تنفيذ هذه الخطوة فقط إذا نجح السكربت في استخراج البيانات
         if: success()
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add final.m3u
-          git commit -m "Update IPTV Credentials $(date)"
-          git push
+          # التحقق من وجود تغييرات فعلياً لتجنب حدوث خطأ عند الـ commit
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update IPTV Credentials $(date)" && git push)
