@@ -2,9 +2,8 @@ name: Auto Update IPTV Credentials
 
 on:
   schedule:
-    # التشغيل كل 23 ساعة
     - cron: '0 */23 * * *'
-  workflow_dispatch: # للتشغيل اليدوي
+  workflow_dispatch:
 
 jobs:
   scrape-and-update:
@@ -29,10 +28,18 @@ jobs:
       - name: Run Scraper
         run: python update_iptv.py
 
+      - name: Upload Debug Screenshot on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudflare-debug
+          path: cloudflare_status.png
+
       - name: Push Changes
+        if: success()
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git add final.m3u
-          # التأكد من وجود تغييرات قبل الـ Commit لتجنب الخطأ
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update IPTV Credentials $(date)" && git push)
+          git commit -m "Update IPTV Credentials $(date)"
+          git push
