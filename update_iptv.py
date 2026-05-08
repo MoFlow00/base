@@ -1,39 +1,64 @@
 import asyncio
 import os
+import random
 from playwright.async_api import async_playwright
 
 async def run_scraper():
     async with async_playwright() as p:
-        # تشغيل عادي جداً لأن النفق شغال على مستوى النظام
+        # تشغيل كروميوم مع محاكاة قوية
         browser = await p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox"
+            ]
         )
         
+        # محاكاة موبايل (iPhone) لتقليل ريبة Cloudflare
+        iphone = p.devices['iPhone 14 Pro Max']
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080}
+            **iphone,
+            locale="en-US"
         )
         
         page = await context.new_page()
+
+        # إخفاء الهوية البرمجية
         await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
-            print("Connecting through WireGuard tunnel...")
-            await page.goto(url, wait_until="load", timeout=90000)
+            print(f"Opening {url} with Mobile Profile...")
+            await page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            
+            # حركة عشوائية لفك تعليق Turnstile
+            print("Simulating human touches...")
+            await page.mouse.move(random.randint(100, 300), random.randint(100, 300))
+            await asyncio.sleep(5)
 
-            print("Waiting for Turnstile unlock (WARP mode)...")
-            # الانتظار حتى تفعيل الزر
+            # التكتيك الجديد: البحث عن الـ Iframe والضغط بداخله
+            print("Searching for Turnstile checkbox...")
+            frames = page.frames
+            for frame in frames:
+                if "cloudflare" in frame.url:
+                    # محاولة الضغط في نص الفريم (مكان الـ Checkbox غالباً)
+                    box = await page.locator('iframe[src*="cloudflare"]').bounding_box()
+                    if box:
+                        print("Found Cloudflare frame. Clicking center...")
+                        await page.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+            
+            print("Waiting for button to unlock...")
+            # مراقبة الزر (المهلة 3 دقائق)
             await page.wait_for_function(
                 "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
-                timeout=120000
+                timeout=180000
             )
 
-            print("Success! Clicking button...")
+            print("Success! Button Unlocked. Clicking...")
             await page.click("#create-btn")
 
+            # انتظار النتائج
             await page.wait_for_selector("input[readonly]", timeout=45000)
             inputs = await page.locator("input[readonly]").all()
             
@@ -42,9 +67,12 @@ async def run_scraper():
             
             if user and pw:
                 with open("base.m3u", "r", encoding="utf-8") as f:
-                    content = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", password)
+                    content = f.read()
+                
+                final_data = content.replace("{USERNAME}", user).replace("{PASSWORD}", pw)
+                
                 with open("final.m3u", "w", encoding="utf-8") as f:
-                    f.write(content)
+                    f.write(final_data)
                 print(f"✅ Extracted: {user}")
 
         except Exception as e:
