@@ -4,74 +4,74 @@ from playwright.async_api import async_playwright
 
 async def run_scraper():
     async with async_playwright() as p:
-        # تشغيل المتصفح مع إعدادات متقدمة
         browser = await p.chromium.launch(headless=True)
-        # استخدام إعدادات متصفح كاملة
+        # رفع مستوى محاكاة المتصفح الحقيقي
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080},
-            has_touch=True
+            viewport={'width': 1280, 'height': 800},
+            device_scale_factor=1,
         )
         
         page = await context.new_page()
 
-        # تجاوز كشف البوت (Stealth)
-        await page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            window.chrome = { runtime: {} };
-        """)
+        # حقن سكريبت التخفي قبل الملاحة
+        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
-            print(f"Navigating to {url}...")
-            # الانتظار حتى استقرار الشبكة تماماً
-            await page.goto(url, wait_until="networkidle", timeout=60000)
-
-            # حركة عشوائية للماوس لمحاكاة نشاط بشري
-            await page.mouse.move(100, 100)
-            await asyncio.sleep(2)
-            await page.mouse.move(400, 400)
-
-            print("Waiting for Cloudflare Turnstile to unlock...")
+            print(f"Connecting to {url}...")
             
-            # محاولة الانتظار لظهار الزرار
+            # التعديل رقم 1: الانتظار حتى 'commit' فقط (أول رد من السيرفر) لتجنب تعليق الشبكة
+            await page.goto(url, wait_until="commit", timeout=90000)
+            
+            # التعديل رقم 2: انتظار تحميل الـ DOM يدوياً
+            print("Page committed, waiting for DOM...")
+            await page.wait_for_load_state("domcontentloaded")
+            
+            # التعديل رقم 3: مهلة انتظار ثابتة قصيرة لترك ملفات Cloudflare تحمل
+            await asyncio.sleep(5)
+
+            print("Checking for Turnstile / Create Button...")
+            
+            # التعديل رقم 4: محاولة الوصول للزرار بمهلة زمنية أطول
             create_btn = page.locator("#create-btn")
             
-            # زيادة المهلة لـ 3 دقائق احتياطياً
+            # ننتظر حتى يصبح الزرار مرئياً ومفعلاً
             await page.wait_for_function(
-                "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
-                timeout=180000 
+                "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
+                timeout=120000
             )
 
-            print("Button unlocked! Clicking...")
+            print("Button is active! Clicking...")
             await create_btn.click()
 
-            # انتظار ظهور النتائج
-            await page.wait_for_selector("input[readonly]", timeout=45000)
+            # انتظار صفحة النتائج
+            await page.wait_for_selector("input[readonly]", timeout=60000)
             
             inputs = await page.locator("input[readonly]").all()
-            username = await inputs[1].get_attribute("value")
-            password = await inputs[2].get_attribute("value")
-
-            if username and password:
-                print(f"Extracted: {username}")
+            if len(inputs) >= 3:
+                username = await inputs[1].get_attribute("value")
+                password = await inputs[2].get_attribute("value")
+                
+                print(f"Success! Captured: {username}")
+                
                 with open("base.m3u", "r", encoding="utf-8") as f:
                     content = f.read()
 
-                updated = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
-
+                final = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
+                
                 with open("final.m3u", "w", encoding="utf-8") as f:
-                    f.write(updated)
-                print("final.m3u generated.")
-            
+                    f.write(final)
+                print("File final.m3u is ready.")
+            else:
+                raise Exception("Inputs not found on result page")
+
         except Exception as e:
-            print(f"Fatal Error: {e}")
-            # تصوير الشاشة عشان نعرف Cloudflare واقف عند إيه
-            await page.screenshot(path="cloudflare_status.png")
-            print("Screenshot saved: cloudflare_status.png")
-            # إنهاء العملية بـ Error code عشان الأكشن ميكملش
-            exit(1) 
+            print(f"Error detail: {e}")
+            # تصوير الشاشة ضروري جداً هنا لنعرف هل ظهرت رسالة "Access Denied"؟
+            await page.screenshot(path="cloudflare_status.png", full_page=True)
+            exit(1)
         
         finally:
             await browser.close()
