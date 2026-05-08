@@ -5,89 +5,79 @@ from playwright.async_api import async_playwright
 
 async def run_scraper():
     async with async_playwright() as p:
-        # تشغيل المتصفح مع إعدادات إخفاء الهوية
-        browser = await p.chromium.launch(
-            headless=True,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
-        )
+        # قائمة بروكسيات مجانية للتجربة (لو عندك بروكسي مدفوع حطه هنا)
+        # البروكسيات المجانية "نصيب"، فممكن نحتاج نغيرهم
+        proxies = [
+            "http://20.206.106.178:80",
+            "http://18.143.215.34:80",
+        ]
         
-        # تصحيح الخطأ: تغيير languages إلى locale
+        proxy_server = random.choice(proxies)
+        print(f"Using Proxy: {proxy_server}")
+
+        # تشغيل المتصفح مع البروكسي
+        try:
+            browser = await p.chromium.launch(
+                headless=True,
+                proxy={"server": proxy_server},
+                args=["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+            )
+        except:
+            # لو البروكسي فشل، شغل عادي
+            browser = await p.chromium.launch(headless=True)
+        
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            viewport={'width': 1920, 'height': 1080},
-            locale="en-US", # تم التصحيح هنا
-            color_scheme='dark'
+            user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={'width': 1280, 'height': 800},
+            locale="en-US"
         )
         
         page = await context.new_page()
 
-        # حقن سكريبتات لإخفاء آثار Playwright تماماً
-        await page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-            window.chrome = { runtime: {} };
-            Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        """)
+        await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
         
         try:
-            print(f"Connecting to {url}...")
-            # استخدام commit لتجنب تعليق الشبكة في GitHub Actions
-            await page.goto(url, wait_until="commit", timeout=90000)
-            await asyncio.sleep(random.uniform(5, 8))
-
-            print("Simulating activity...")
-            await page.mouse.move(random.randint(100, 600), random.randint(100, 600))
-            await page.evaluate("window.scrollTo(0, 300)")
-            await asyncio.sleep(2)
-
-            print("Waiting for Turnstile to unlock the button...")
+            print(f"Attempting to connect to {url}...")
+            # استخدام wait_until="load" لضمان تحميل الـ Widget بالكامل
+            await page.goto(url, wait_until="load", timeout=90000)
             
-            # فحص حالة الزر برمجياً
-            try:
-                await page.wait_for_function(
-                    "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
-                    timeout=150000 
-                )
-            except:
-                print("Button remains locked. Cloudflare might be blocking the IP.")
-                await page.screenshot(path="cloudflare_status.png", full_page=True)
-                raise Exception("Turnstile verification failed or timed out.")
+            # محاكاة حركة عشوائية لفك تعليق Turnstile
+            for i in range(3):
+                await page.mouse.wheel(0, 200)
+                await asyncio.sleep(2)
+                await page.mouse.wheel(0, -200)
 
-            print("Button Unlocked! Clicking...")
+            print("Waiting for Turnstile to approve us...")
+            
+            # الانتظار حتى تفعيل الزر
+            await page.wait_for_function(
+                "() => { const btn = document.querySelector('#create-btn'); return btn && !btn.hasAttribute('disabled'); }",
+                timeout=120000
+            )
+
+            print("Unblocked! Proceeding...")
             await page.click("#create-btn")
 
-            # انتظار صفحة النتائج
             await page.wait_for_selector("input[readonly]", timeout=60000)
             
             inputs = await page.locator("input[readonly]").all()
-            if len(inputs) >= 3:
-                username = await inputs[1].get_attribute("value")
-                password = await inputs[2].get_attribute("value")
-                
-                print(f"✅ Success! Captured: {username}")
-                
-                # قراءة base.m3u وتحديثه
-                with open("base.m3u", "r", encoding="utf-8") as f:
-                    content = f.read()
+            username = await inputs[1].get_attribute("value")
+            password = await inputs[2].get_attribute("value")
 
-                final = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
-                
-                with open("final.m3u", "w", encoding="utf-8") as f:
-                    f.write(final)
-                print("final.m3u generated successfully.")
-            else:
-                print("❌ Result fields not found.")
+            with open("base.m3u", "r", encoding="utf-8") as f:
+                content = f.read()
+
+            final = content.replace("{USERNAME}", username).replace("{PASSWORD}", password)
+            
+            with open("final.m3u", "w", encoding="utf-8") as f:
+                f.write(final)
+            print("Done! final.m3u created.")
 
         except Exception as e:
-            print(f"❌ Error Detail: {e}")
-            # أخذ لقطة شاشة للتشخيص
-            if not page.is_closed():
-                await page.screenshot(path="cloudflare_status.png", full_page=True)
+            print(f"Failed again. Cloudflare is too strong for GitHub IPs. Error: {e}")
+            await page.screenshot(path="cloudflare_status.png", full_page=True)
             exit(1)
         
         finally:
