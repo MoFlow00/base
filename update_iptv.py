@@ -1,51 +1,54 @@
-import time
+import asyncio
 import os
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+from cloakbrowser import launch_context_async
 
-def run_scraper():
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36")
-
-    # المسار اللي لاقيناه في جهازك
-    service = Service(executable_path="/data/data/com.termux/files/usr/bin/chromedriver")
+async def scrape_logic():
+    print("🚀 Launching CloakBrowser on GitHub Runner...")
     
-    try:
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        print("🚀 Connecting via Mobile IP...")
-        driver.get("https://freeiptv2023-d.ottc.xyz/?action=view")
-        
-        wait = WebDriverWait(driver, 120)
-        btn = wait.until(EC.element_to_be_clickable((By.ID, "create-btn")))
-        
-        print("✅ Success! Clicking...")
-        btn.click()
-        
-        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[readonly]")))
-        inputs = driver.find_elements(By.CSS_SELECTOR, "input[readonly]")
-        
-        user = inputs[1].get_attribute("value")
-        pw = inputs[2].get_attribute("value")
-        print(f"✅ Extracted: {user}")
+    # Using source-level patches to bypass Cloudflare Turnstile
+    context = await launch_context_async(
+        headless=True,
+        humanize=True, # Human-like behavior
+        args=["--no-sandbox"]
+    )
 
-        # تحديث الملف
-        if os.path.exists("base.m3u"):
-            with open("base.m3u", "r") as f:
-                data = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", pw)
-            with open("final.m3u", "w") as f:
-                f.write(data)
-            print("📦 final.m3u updated.")
+    page = await context.new_page()
+    url = "https://freeiptv2023-d.ottc.xyz/?action=view"
+
+    try:
+        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        print("⏳ Bypassing Turnstile...")
+
+        # Wait for the button to become active (C++ patches handle the heavy lifting)
+        await page.wait_for_function(
+            "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
+            timeout=90000
+        )
+
+        print("✅ Button Unlocked. Extracting...")
+        await page.click("#create-btn")
+
+        # Wait for the readonly data fields
+        await page.wait_for_selector("input[readonly]", timeout=30000)
+        inputs = await page.locator("input[readonly]").all()
+        
+        if len(inputs) >= 3:
+            user = await inputs[1].get_attribute("value")
+            pw = await inputs[2].get_attribute("value")
+            print(f"🎯 Captured: {user}")
+
+            # Update the local file
+            if os.path.exists("base.m3u"):
+                with open("base.m3u", "r") as f:
+                    content = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", pw)
+                with open("final.m3u", "w") as f:
+                    f.write(content)
+                print("📝 final.m3u updated.")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Execution Failed: {e}")
     finally:
-        driver.quit()
+        await context.close()
 
 if __name__ == "__main__":
-    run_scraper()
+    asyncio.run(scrape_logic())
