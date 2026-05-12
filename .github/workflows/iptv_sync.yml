@@ -1,8 +1,8 @@
 name: Auto Update IPTV
 on:
   schedule:
-    - cron: '0 2 * * *' # تشغيل يومي الساعة 2 صباحاً
-  workflow_dispatch: # زر تشغيل يدوي
+    - cron: '0 2 * * *'
+  workflow_dispatch:
 
 jobs:
   update:
@@ -14,12 +14,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11' # نسخة أكثر استقراراً مع المكتبات دي
 
       - name: Install Dependencies
         run: |
-          pip install cloakbrowser playwright-core
-          python -m cloakbrowser install # تحميل المتصفح المعدل
+          python -m pip install --upgrade pip
+          pip install cloakbrowser
+          # تثبيت المكتبات اللي بيعتمد عليها المتصفح في Linux
+          python -m cloakbrowser install
+          # الأمر ده مهم جداً عشان الـ Runner يقدر يفتح المتصفح
+          pip install playwright
+          playwright install-deps chromium 
 
       - name: Run Scraper
         run: python update_iptv.py
@@ -29,5 +34,5 @@ jobs:
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
           git add final.m3u
-          git commit -m "Auto-update IPTV credentials" || exit 0
+          git commit -m "Auto-update IPTV $(date)" || exit 0
           git push
