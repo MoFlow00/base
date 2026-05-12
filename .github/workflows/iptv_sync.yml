@@ -1,62 +1,33 @@
-name: IPTV Update via WireGuard Tunnel
-
+name: Auto Update IPTV
 on:
   schedule:
-    - cron: '0 */23 * * *'
-  workflow_dispatch:
+    - cron: '0 2 * * *' # تشغيل يومي الساعة 2 صباحاً
+  workflow_dispatch: # زر تشغيل يدوي
 
 jobs:
-  scrape-and-update:
+  update:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install WireGuard
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wireguard-tools
-          # تحويل الـ Secret لملف كونفيج حقيقي
-          echo "${{ secrets.WG_CONF }}" | sudo tee /etc/wireguard/wg0.conf > /dev/null
-          sudo chmod 600 /etc/wireguard/wg0.conf
-
-      - name: Connect to WireGuard (WARP)
-        run: |
-          sudo wg-quick up wg0
-          # التأكد من تغيير الـ IP
-          curl ipinfo.io
-
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
       - name: Install Dependencies
         run: |
-          pip install playwright
-          playwright install chromium --with-deps
+          pip install cloakbrowser playwright-core
+          python -m cloakbrowser install # تحميل المتصفح المعدل
 
       - name: Run Scraper
         run: python update_iptv.py
 
-      - name: Disconnect WireGuard
-        if: always()
-        run: sudo wg-quick down wg0
-
-      - name: Upload Debug Screenshot on Failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: warp-debug
-          path: cloudflare_status.png
-
       - name: Commit and Push
-        if: success()
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
           git add final.m3u
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update IPTV via WARP $(date)" && git push)
+          git commit -m "Auto-update IPTV credentials" || exit 0
+          git push
