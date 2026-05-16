@@ -27,12 +27,12 @@ async def run_update():
         print("✅ Protection Bypassed! Clicking...")
         await page.click("#create-btn")
 
-        # استنى شوية بعد الـ Click عشان الصفحة تتحمل
+        # استنى شوية بعد الـ Click
         print("⏳ Waiting for page to settle after click...")
         await page.wait_for_timeout(5000)
         await page.wait_for_load_state("networkidle", timeout=30000)
 
-        # جرب تستنى العناصر بـ timeout أطول
+        # جرب تستنى العناصر
         print("🔍 Looking for input fields...")
         await page.wait_for_selector("input[readonly]", timeout=60000)
         
@@ -55,12 +55,17 @@ async def run_update():
 
         else:
             print(f"⚠️ Expected 3+ inputs, found {len(inputs)}")
-            # خد screenshot لو العناصر مش كافية
             await page.screenshot(path="debug_screenshot.png", full_page=True)
+            # احفظ الـ HTML عشان تشوف العناصر
+            html = await page.content()
+            with open("page_source.html", "w") as f:
+                f.write(html)
 
     except Exception as e:
         await page.screenshot(path="error_screenshot.png", full_page=True)
         html = await page.content()
+        with open("page_source.html", "w") as f:
+            f.write(html)
         print(f"❌ Error during execution: {e}")
         print("Page HTML preview:")
         print(html[:3000])
