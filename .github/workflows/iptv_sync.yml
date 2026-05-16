@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # 1. تحميل المتصفح والمكتبات أولاً على شبكة جيتهاب المباشرة بدون VPN لضمان الثبات
+      # 1. تحميل المتصفح والمكتبات أولاً على شبكة جيتهاب المباشرة لضمان السرعة والثبات
       - name: Install Dependencies & Download Browser
         run: |
           python -m pip install --upgrade pip
@@ -25,21 +25,23 @@ jobs:
           pip install playwright
           playwright install-deps chromium 
 
-      # 2. تثبيت أداة WireGuard وتجهيز الإعدادات
+      # 2. تثبيت أداة WireGuard الأساسية فقط بدون أدوات DNS خارجية
       - name: Install WireGuard Tool
         run: |
           sudo apt-get update
-          sudo apt-get install -y wireguard resolvconf
+          sudo apt-get install -y wireguard
 
+      # 3. بناء الإعدادات وحقن الـ DNS عبر نظام التوجيه الحديث PostUp
       - name: Setup WireGuard Configuration
         run: |
           sudo mkdir -p /etc/wireguard
           sudo bash -c 'cat << EOF > /etc/wireguard/wg0.conf
           [Interface]
           Address = 172.16.0.2/32, 2606:4700:110:8b41:ff01:9a1b:f205:c01e/128
-          DNS = 1.1.1.1, 2606:4700:4700::1111, 1.0.0.1, 2606:4700:4700::1001
           MTU = 1280
           PrivateKey = wMjqsNXB9LhRUepQTQnEUm9fAdSyN8MKo5nCQcsvxWQ=
+          # السطر السحري لربط الـ DNS بنظام Ubuntu 24.04 الحديث تلقائياً عند قيام النفق
+          PostUp = resolvectl dns %i 1.1.1.1 1.0.0.1; resolvectl domain %i "~."
 
           [Peer]
           AllowedIPs = 0.0.0.0/0, ::/0
@@ -48,18 +50,18 @@ jobs:
           PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
           EOF'
 
-      # 3. تشغيل الـ VPN قبل خطوة الكشط مباشرة لحماية الـ IP
+      # 4. تشغيل النفق والتحقق من الـ IP الجديد (Cloudflare WARP)
       - name: Start WireGuard Tunnel
         run: |
           sudo wg-quick up wg0
           echo "Verifying Clean Public IP:"
           curl ifconfig.me
 
-      # 4. تشغيل الـ Scraper
+      # 5. تشغيل الـ Scraper الآمن
       - name: Run Scraper
         run: python update_iptv.py
 
-      # 5. إغلاق النفق بعد الانتهاء
+      # 6. تفكيك النفق بعد انتهاء العملية
       - name: Stop WireGuard Tunnel
         if: always()
         run: |
@@ -67,7 +69,7 @@ jobs:
             sudo wg-quick down wg0
           fi
 
-      # 6. الرفع لـ GitHub
+      # 7. حفظ التعديلات والرفع لـ GitHub
       - name: Commit and Push
         run: |
           git config --global user.name "GitHub Action"
