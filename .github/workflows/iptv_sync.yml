@@ -16,16 +16,49 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install WireGuard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard openresolv
+
+      - name: Setup WireGuard Configuration
+        run: |
+          sudo mkdir -p /etc/wireguard
+          sudo bash -c 'cat << EOF > /etc/wireguard/wg0.conf
+          [Interface]
+          Address = 172.16.0.2/32, 2606:4700:110:8b41:ff01:9a1b:f205:c01e/128
+          DNS = 1.1.1.1, 2606:4700:4700::1111, 1.0.0.1, 2606:4700:4700::1001
+          MTU = 1280
+          PrivateKey = wMjqsNXB9LhRUepQTQnEUm9fAdSyN8MKo5nCQcsvxWQ=
+
+          [Peer]
+          AllowedIPs = 0.0.0.0/0, ::/0
+          Endpoint = 162.159.195.4:500
+          PersistentKeepalive = 25
+          PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+          EOF'
+
+      - name: Start WireGuard Tunnel
+        run: |
+          sudo wg-quick up wg0
+          echo "Verifying Clean Public IP:"
+          curl ifconfig.me
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests "cloakbrowser[geoip]"
+          pip install requests cloakbrowser
           python -m cloakbrowser install
           pip install playwright
           playwright install-deps chromium 
 
       - name: Run Scraper
         run: python update_iptv.py
+
+      - name: Stop WireGuard Tunnel
+        if: always()
+        run: |
+          sudo wg-quick down wg0
 
       - name: Commit and Push
         run: |
