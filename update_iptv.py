@@ -18,24 +18,26 @@ async def run_update():
         print(f"🔗 Navigating to {url}")
         await page.goto(url, wait_until="domcontentloaded", timeout=60000)
         
-        print("⏳ Waiting for Turnstile...")
+        print("⏳ Waiting for Turnstile (Stealth Mode Active)...")
         await page.wait_for_function(
             "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
             timeout=90000
         )
 
-        print("✅ Protection Bypassed! Sleeping 3s for human behavior...")
-        await asyncio.sleep(3)
-
-        print("🖱️ Clicking Create Button...")
+        print("✅ Protection Bypassed! Clicking...")
         await page.click("#create-btn")
-        
-        print("⏳ Waiting for navigation and network to settle...")
-        await page.wait_for_load_state("networkidle")
-        await asyncio.sleep(5) # وقت إضافي لضمان نزول البيانات
 
-        # التحقق من الحقول
+        # استنى شوية بعد الـ Click عشان الصفحة تتحمل
+        print("⏳ Waiting for page to settle after click...")
+        await page.wait_for_timeout(5000)
+        await page.wait_for_load_state("networkidle", timeout=30000)
+
+        # جرب تستنى العناصر بـ timeout أطول
+        print("🔍 Looking for input fields...")
+        await page.wait_for_selector("input[readonly]", timeout=60000)
+        
         inputs = await page.locator("input[readonly]").all()
+        print(f"📊 Found {len(inputs)} readonly inputs")
         
         if len(inputs) >= 3:
             user = await inputs[1].get_attribute("value")
@@ -50,22 +52,18 @@ async def run_update():
                 print("📝 final.m3u updated.")
             else:
                 print("⚠️ base.m3u not found in repository!")
+
         else:
-            print("❌ Fields found but not matching expected count. Dumping page source below:")
-            body_text = await page.inner_text("body")
-            print(f"\n--- PAGE BODY CONTENT ---\n{body_text}\n-------------------------")
-            raise RuntimeError("Credentials inputs not found on the current page context.")
+            print(f"⚠️ Expected 3+ inputs, found {len(inputs)}")
+            # خد screenshot لو العناصر مش كافية
+            await page.screenshot(path="debug_screenshot.png", full_page=True)
 
     except Exception as e:
+        await page.screenshot(path="error_screenshot.png", full_page=True)
+        html = await page.content()
         print(f"❌ Error during execution: {e}")
-        # طباعة الرابط الحالي وقت الخطأ للتشخيص
-        print(f"📍 Current URL when failed: {page.url}")
-        try:
-            body_text = await page.inner_text("body")
-            print(f"\n--- FALLBACK PAGE BODY CONTENT ---\n{body_text}\n-------------------------")
-        except:
-            pass
-        raise e
+        print("Page HTML preview:")
+        print(html[:3000])
     finally:
         await context.close()
 
