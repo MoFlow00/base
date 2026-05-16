@@ -16,7 +16,17 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install WireGuard
+      # 1. تحميل المتصفح والمكتبات أولاً على شبكة جيتهاب المباشرة بدون VPN لضمان الثبات
+      - name: Install Dependencies & Download Browser
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests cloakbrowser
+          python -m cloakbrowser install
+          pip install playwright
+          playwright install-deps chromium 
+
+      # 2. تثبيت أداة WireGuard وتجهيز الإعدادات
+      - name: Install WireGuard Tool
         run: |
           sudo apt-get update
           sudo apt-get install -y wireguard resolvconf
@@ -38,31 +48,26 @@ jobs:
           PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
           EOF'
 
+      # 3. تشغيل الـ VPN قبل خطوة الكشط مباشرة لحماية الـ IP
       - name: Start WireGuard Tunnel
         run: |
           sudo wg-quick up wg0
           echo "Verifying Clean Public IP:"
           curl ifconfig.me
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests cloakbrowser
-          python -m cloakbrowser install
-          pip install playwright
-          playwright install-deps chromium 
-
+      # 4. تشغيل الـ Scraper
       - name: Run Scraper
         run: python update_iptv.py
 
+      # 5. إغلاق النفق بعد الانتهاء
       - name: Stop WireGuard Tunnel
         if: always()
         run: |
-          # التحقق من وجود الأداة قبل المحاولة لتجنب أخطاء برمجية إضافية
           if command -v wg-quick >/dev/null 2>&1; then
             sudo wg-quick down wg0
           fi
 
+      # 6. الرفع لـ GitHub
       - name: Commit and Push
         run: |
           git config --global user.name "GitHub Action"
