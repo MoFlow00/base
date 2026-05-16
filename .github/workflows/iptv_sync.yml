@@ -1,5 +1,4 @@
 name: Auto Update IPTV
-
 on:
   schedule:
     - cron: '0 2 * * *'
@@ -8,7 +7,6 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -21,23 +19,13 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install cloakbrowser
+          pip install requests cloakbrowser
           python -m cloakbrowser install
           pip install playwright
-          playwright install-deps chromium
+          playwright install-deps chromium 
 
       - name: Run Scraper
         run: python update_iptv.py
-
-      - name: Upload Debug Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-files-${{ github.run_id }}
-          path: |
-            after_click.png
-            error_screenshot.png
-            page_source.html
 
       - name: Commit and Push
         run: |
