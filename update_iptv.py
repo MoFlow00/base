@@ -26,23 +26,31 @@ async def run_update():
         print(f"🔗 Navigating to {url}")
         await page.goto(url, wait_until="domcontentloaded", timeout=60000)
         
-        print("⏳ Waiting for Turnstile (Stealth Mode Active)...")
-        await page.wait_for_function(
-            "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
-            timeout=120000
-        )
+        print("⏳ Passing Turnstile...")
+        # انتظار بسيط للتأكد من رندر عناصر الصفحة الأساسية
+        await asyncio.sleep(5) 
 
-        print("✅ Protection Bypassed! Clicking...")
+        print("⚡ Force-activating the button via JavaScript injection (Bypassing Freeze Timer)...")
+        # حقن كود جافا سكريبت لإزالة الحظر عن الزر فوراً وجعله قابلاً للضغط حتى لو تجمد العداد
+        await page.evaluate("""
+            const btn = document.querySelector('#create-btn');
+            if(btn) {
+                btn.removeAttribute('disabled');
+                btn.classList.remove('disabled');
+                console.log('Button forced active!');
+            }
+        """)
+
+        await asyncio.sleep(2)
+        print("鼠标 Clicking Create Button...")
         await page.click("#create-btn")
 
         print("⏳ Waiting for page navigation and load state stability...")
-        # الانتظار حتى يستقر المتصفح تماماً بعد الضغط والتحويل إلى index.php
         await page.wait_for_load_state("domcontentloaded")
-        await asyncio.sleep(5) # مهلة أمان إضافية لاستقرار استجابة السيرفر
+        await asyncio.sleep(5)
 
-        print("⏳ Waiting for credentials fields (Extended Timeout)...")
-        # رفع المهلة لـ 90 ثانية لضمان ظهور الحقول دون الانهيار بسبب بطء السيرفر
-        await page.wait_for_selector("input[readonly]", timeout=90000)
+        print("⏳ Waiting for credentials fields...")
+        await page.wait_for_selector("input[readonly]", timeout=60000)
         inputs = await page.locator("input[readonly]").all()
         
         if len(inputs) >= 3:
@@ -72,9 +80,8 @@ async def run_update():
     except Exception as e:
         print(f"❌ Error during execution: {e}")
         try:
-            # حفظ لقطة شاشة تشخيصية لـ جيت هاب لمعاينة الصفحة الأخيرة في حال الانهيار
             await page.screenshot(path="error_debug.png")
-            print("📸 Diagnostic screenshot saved as error_debug.png")
+            print("📸 Diagnostic screenshot saved.")
         except:
             pass
         raise e
