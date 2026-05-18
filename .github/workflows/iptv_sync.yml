@@ -1,15 +1,16 @@
-name: Update IPTV List
+name: Daily IPTV Auto Update
 
 on:
-  push:
-    branches: [ main ]
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
+    # يشتغل تلقائياً كل يوم الساعة 7 صباحاً UTC (تساوي 10 صباحاً بتوقيتك المحلي)
+    - cron: '0 7 * * *'
+  workflow_dispatch: # يتيح لك تشغيله يدوياً بضغطة زر من موقع جيت هاب في أي وقت
 
 jobs:
-  update-list:
+  build-and-run:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # إعطاء السيرفر صلاحية تعديل ورفع الملفات للمستودع
 
     steps:
     - name: Checkout Repository
@@ -20,18 +21,31 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Install Python Packages
+    - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        # تثبيت مكتبة المطور ومكتبة الأتمتة الأساسية
         pip install playwright cloakbrowser
 
-    - name: Install Playwright Browsers & System Deps
+    - name: Install Playwright Chromium and System Deps
       run: |
-        # تثبيت متصفحات جيت هاب المخصصة وحزم النظام المفقودة للينكس
         playwright install chromium
         playwright install-deps
 
     - name: Run IPTV Update Script
       run: |
         python update_iptv.py
+
+    - name: Commit and Push Updated final.m3u
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+        
+        # تحقق لو تم تحديث الملف فعلياً لتجنب الرفع بدون تغييرات
+        if git status --porcelain | grep -q "final.m3u"; then
+          git add final.m3u
+          git commit -m "📝 Auto-updated final.m3u [$(date -u +'%Y-%m-%d %H:%M:%S' -d '+3 hours')]"
+          git push
+          print("✅ New credentials pushed to GitHub repository.")
+        else
+          print("ℹ️ No changes detected in final.m3u.")
+        fi
