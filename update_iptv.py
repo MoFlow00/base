@@ -35,7 +35,14 @@ async def run_update():
         print("✅ Protection Bypassed! Clicking...")
         await page.click("#create-btn")
 
-        await page.wait_for_selector("input[readonly]", timeout=30000)
+        print("⏳ Waiting for page navigation and load state stability...")
+        # الانتظار حتى يستقر المتصفح تماماً بعد الضغط والتحويل إلى index.php
+        await page.wait_for_load_state("domcontentloaded")
+        await asyncio.sleep(5) # مهلة أمان إضافية لاستقرار استجابة السيرفر
+
+        print("⏳ Waiting for credentials fields (Extended Timeout)...")
+        # رفع المهلة لـ 90 ثانية لضمان ظهور الحقول دون الانهيار بسبب بطء السيرفر
+        await page.wait_for_selector("input[readonly]", timeout=90000)
         inputs = await page.locator("input[readonly]").all()
         
         if len(inputs) >= 3:
@@ -47,7 +54,6 @@ async def run_update():
             base_file = os.path.join(current_dir, "base.m3u")
             final_file = os.path.join(current_dir, "final.m3u")
 
-            # إذا لم يجد الملف محلياً في السيرفر، يقوم بسحبه من الرابط الذي أرفقته فوراً
             if not os.path.exists(base_file):
                 print("📥 Fetching base.m3u directly from GitHub...")
                 raw_url = "https://raw.githubusercontent.com/MoFlow00/base/main/base.m3u"
@@ -65,6 +71,12 @@ async def run_update():
 
     except Exception as e:
         print(f"❌ Error during execution: {e}")
+        try:
+            # حفظ لقطة شاشة تشخيصية لـ جيت هاب لمعاينة الصفحة الأخيرة في حال الانهيار
+            await page.screenshot(path="error_debug.png")
+            print("📸 Diagnostic screenshot saved as error_debug.png")
+        except:
+            pass
         raise e
     finally:
         await context.close()
