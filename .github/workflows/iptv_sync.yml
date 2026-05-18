@@ -49,3 +49,14 @@ jobs:
         else
           print("ℹ️ No changes detected in final.m3u.")
         fi
+        - name: Run IPTV Update Script
+      run: |
+        python update_iptv.py
+
+    # 🚀 خطوة رفع الصورة التشخيصية في حال فشل السكربت
+    - name: Upload Error Screenshot
+      if: always() # تعمل دائماً حتى لو انهار السكربت
+      uses: actions/upload-artifact@v4
+      with:
+        name: diagnostic-screenshot
+        path: error_debug.png
