@@ -29,7 +29,8 @@ jobs:
     - name: Install Python Packages
       run: |
         python -m pip install --upgrade pip
-        pip install selenium undetected-chromedriver
+        # تثبيت setuptools يحل مشكلة غياب distutils في بايثون 3.12
+        pip install setuptools selenium undetected-chromedriver
 
     - name: Run IPTV Update Script
       run: |
