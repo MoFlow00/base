@@ -20,18 +20,18 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Install Google Chrome and Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget curl unzip
-        sudo apt-get install -y google-chrome-stable
-
     - name: Install Python Packages
       run: |
         python -m pip install --upgrade pip
-        # تثبيت setuptools يحل مشكلة غياب distutils في بايثون 3.12
-        pip install setuptools selenium undetected-chromedriver
+        # تثبيت مكتبة المطور ومكتبة الأتمتة الأساسية
+        pip install playwright cloakbrowser
+
+    - name: Install Playwright Browsers & System Deps
+      run: |
+        # تثبيت متصفحات جيت هاب المخصصة وحزم النظام المفقودة للينكس
+        playwright install chromium
+        playwright install-deps
 
     - name: Run IPTV Update Script
       run: |
-        python update_iptv.py headless
+        python update_iptv.py
