@@ -1,5 +1,6 @@
 import time
 import os
+import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -7,22 +8,28 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 def run_update_selenium():
-    print("🚀 Starting Selenium Stealth Engine (Windows Persistent Context)...")
+    # التحقق تلقائياً إذا كان الكود يعمل داخل سيرفرات GitHub أو تم تمرير خيار headless
+    is_github = "GITHUB_ACTIONS" in os.environ
+    is_headless = is_github or (len(sys.argv) > 1 and sys.argv[1] == 'headless')
     
     options = Options()
     
-    # ربط الكاش لضمان تخطي حماية كلوفلير في المرات القادمة بسلاسة
-    user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
-    options.add_argument(f"--user-data-dir={user_data_dir}")
-    
-    # كتم أخطاء الشبكة والـ DNS الناتجة عن الـ Hotspot
+    if is_headless:
+        print("🚀 Starting Selenium Stealth Engine (GitHub/Server Headless Mode)...")
+        options.add_argument('--headless=new')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+    else:
+        print("🚀 Starting Selenium Stealth Engine (Local Windows Persistent Mode)...")
+        # حفظ الكاش والملفات محلياً يعمل فقط في الوضع المرئي على الكمبيوتر لتفادي كلوفلير
+        user_data_dir = os.path.join(os.getcwd(), "chrome_profile")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+        # كتم أخطاء الـ DNS والشبكة الناتجة عن الـ Hotspot محلياً
+        options.add_argument('--disable-webrtc')
+
+    # إعدادات موحدة لكتم سجلات الأخطاء الجانبية وتخطي كشف الأتمتة
     options.add_argument('--log-level=3')
     options.add_argument('--silent')
-    options.add_argument('--disable-webrtc')
-    
-    # إعدادات تخطي كشف الـ Automation
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
     options.add_experimental_option('useAutomationExtension', False)
@@ -30,7 +37,7 @@ def run_update_selenium():
 
     driver = webdriver.Chrome(options=options)
     
-    # حقن كود التخفي لمنع كشف المتصفح عبر الجافا سكريبت
+    # حقن كود الخداع لمنع كشف المتصفح عبر الجافا سكريبت في الحالتين
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
         "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
     })
@@ -42,18 +49,19 @@ def run_update_selenium():
         driver.get(url)
         
         print("⏳ Passing Turnstile Protection...")
-        print("Note: If a checkbox appears, please click it manually.")
+        if not is_headless:
+            print("Note: If a checkbox appears on your laptop screen, please click it manually.")
         
-        # الانتظار حتى يتفعل الزر ويختفي منه الـ 'disabled' (حد أقصى دقيقتين)
+        # الانتظار حتى يتفعل الزر ويصبح قابلاً للضغط (بحد أقصى دقيقتين)
         wait = WebDriverWait(driver, 120)
         create_btn = wait.until(EC.element_to_be_clickable((By.ID, "create-btn")))
 
-        time.sleep(3) # محاكاة التأخير البشري قبل الضغط كما في كودك الأصلي
-        print("鼠标 Clicking Create Button...")
+        time.sleep(3) # محاكاة التأخير البشري قبل الضغط
+        print("🖱️ Clicking Create Button...")
         create_btn.click()
         
         print("⏳ Waiting for credentials fields...")
-        # الانتظار حتى تظهر الحقول المقروءة فقط
+        # الانتظار حتى تظهر الحقول التي تحتوي على البيانات المفتاحية
         wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "input[readonly]")))
         inputs = driver.find_elements(By.CSS_SELECTOR, "input[readonly]")
         
@@ -62,7 +70,7 @@ def run_update_selenium():
             pw = inputs[2].get_attribute("value")
             print(f"🎯 SUCCESS! Extracted User: {user}")
 
-            # منطق معالجة ملف الـ M3U الخاص بك
+            # منطق استبدال وتحديث ملف الـ M3U الخاص بك
             if os.path.exists("base.m3u"):
                 with open("base.m3u", "r", encoding="utf-8") as f:
                     content = f.read()
