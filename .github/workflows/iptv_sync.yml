@@ -1,79 +1,39 @@
-name: Auto Update IPTV
+name: Update IPTV List
+
 on:
+  push:
+    branches: [ main ]
   schedule:
-    - cron: '0 2 * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *' # تشغيل تلقائي كل 6 ساعات كمثال
+  workflow_dispatch: # للتشغيل اليدوي من موقع جيت هاب
 
 jobs:
-  update:
+  update-list:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    - name: Set up Python
+      uses: actions/configure-pages@v5 # أو إعداد بايثون العادي
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
 
-      # 1. تحميل المتصفح والمكتبات أولاً على شبكة جيتهاب المباشرة لضمان السرعة والثبات
-      - name: Install Dependencies & Download Browser
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests cloakbrowser
-          python -m cloakbrowser install
-          pip install playwright
-          playwright install-deps chromium 
+    - name: Install Google Chrome and Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget curl unzip
+        # تثبيت متصفح كروم الرسمي المستقر على سيرفر الوبونتو
+        sudo apt-get install -y google-chrome-stable
 
-      # 2. تثبيت أداة WireGuard الأساسية فقط بدون أدوات DNS خارجية
-      - name: Install WireGuard Tool
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wireguard
+    - name: Install Python Packages
+      run: |
+        python -m pip install --upgrade pip
+        pip install selenium
 
-      # 3. بناء الإعدادات وحقن الـ DNS عبر نظام التوجيه الحديث PostUp
-      - name: Setup WireGuard Configuration
-        run: |
-          sudo mkdir -p /etc/wireguard
-          sudo bash -c 'cat << EOF > /etc/wireguard/wg0.conf
-          [Interface]
-          Address = 172.16.0.2/32, 2606:4700:110:8b41:ff01:9a1b:f205:c01e/128
-          MTU = 1280
-          PrivateKey = wMjqsNXB9LhRUepQTQnEUm9fAdSyN8MKo5nCQcsvxWQ=
-          # السطر السحري لربط الـ DNS بنظام Ubuntu 24.04 الحديث تلقائياً عند قيام النفق
-          PostUp = resolvectl dns %i 1.1.1.1 1.0.0.1; resolvectl domain %i "~."
-
-          [Peer]
-          AllowedIPs = 0.0.0.0/0, ::/0
-          Endpoint = 162.159.195.4:500
-          PersistentKeepalive = 25
-          PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
-          EOF'
-
-      # 4. تشغيل النفق والتحقق من الـ IP الجديد (Cloudflare WARP)
-      - name: Start WireGuard Tunnel
-        run: |
-          sudo wg-quick up wg0
-          echo "Verifying Clean Public IP:"
-          curl ifconfig.me
-
-      # 5. تشغيل الـ Scraper الآمن
-      - name: Run Scraper
-        run: python update_iptv.py
-
-      # 6. تفكيك النفق بعد انتهاء العملية
-      - name: Stop WireGuard Tunnel
-        if: always()
-        run: |
-          if command -v wg-quick >/dev/null 2>&1; then
-            sudo wg-quick down wg0
-          fi
-
-      # 7. حفظ التعديلات والرفع لـ GitHub
-      - name: Commit and Push
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add final.m3u
-          git commit -m "Auto-update IPTV $(date)" || exit 0
-          git push
+    - name: Run IPTV Update Script
+      run: |
+        # تشغيل السكربت مع إرسال خيار headless لأن السيرفر بدون شاشة
+        python update_iptv.py headless
