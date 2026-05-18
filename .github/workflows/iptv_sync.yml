@@ -36,6 +36,7 @@ jobs:
         python update_iptv.py
 
     - name: Commit and Push Updated final.m3u
+      if: success() # يتم التنفيذ فقط لو نجح السكربت في استخراج البيانات
       run: |
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@github.com"
@@ -45,17 +46,14 @@ jobs:
           git add final.m3u
           git commit -m "📝 Auto-updated final.m3u [$(date -u +'%Y-%m-%d %H:%M:%S' -d '+3 hours')]"
           git push
-          print("✅ New credentials pushed to GitHub repository.")
+          echo "✅ New credentials pushed to GitHub repository."
         else
-          print("ℹ️ No changes detected in final.m3u.")
+          echo "ℹ️ No changes detected in final.m3u."
         fi
-        - name: Run IPTV Update Script
-      run: |
-        python update_iptv.py
 
-    # 🚀 خطوة رفع الصورة التشخيصية في حال فشل السكربت
+    # 🚀 خطوة رفع الصورة التشخيصية في حال فشل السكربت (تعمل دائماً حتى لو انهار السكربت)
     - name: Upload Error Screenshot
-      if: always() # تعمل دائماً حتى لو انهار السكربت
+      if: always() 
       uses: actions/upload-artifact@v4
       with:
         name: diagnostic-screenshot
