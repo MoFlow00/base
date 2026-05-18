@@ -4,8 +4,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 */6 * * *' # تشغيل تلقائي كل 6 ساعات كمثال
-  workflow_dispatch: # للتشغيل اليدوي من موقع جيت هاب
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   update-list:
@@ -16,7 +16,6 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/configure-pages@v5 # أو إعداد بايثون العادي
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -25,7 +24,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y wget curl unzip
-        # تثبيت متصفح كروم الرسمي المستقر على سيرفر الوبونتو
         sudo apt-get install -y google-chrome-stable
 
     - name: Install Python Packages
@@ -35,5 +33,4 @@ jobs:
 
     - name: Run IPTV Update Script
       run: |
-        # تشغيل السكربت مع إرسال خيار headless لأن السيرفر بدون شاشة
         python update_iptv.py headless
