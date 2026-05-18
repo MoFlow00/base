@@ -23,7 +23,7 @@ def run_update_selenium():
         options.add_argument('--window-size=1920,1080')
         options.add_argument('--log-level=3')
         
-        driver = uc.Chrome(options=options, version_main=120) # تجنب كشف النواة
+        driver = uc.Chrome(options=options) # تجنب كشف النواة
         
     # 2. إذا كان يعمل محلياً على اللابتوب الخاص بك (الوضع المرئي المستقر)
     else:
