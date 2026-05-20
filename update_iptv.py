@@ -1,11 +1,15 @@
 import asyncio
 import os
-import sys
-import urllib.request
-from cloakbrowser import launch_context_async
+import subprocess
+import sys 
+
+# Force Chromium to use software CPU rendering instead of hardware GPU inside PRoot
+os.environ["ELECTRON_DISABLE_GPU"] = "1"
+os.environ["DISABLE_X11"] = "1"
+os.environ["PLAYWRIGHT_CHROME_DISABLE_GPU"] = "1"
 
 async def run_update():
-    print("🚀 Starting CloakBrowser Stealth Engine via GitHub Actions Scheduler...")
+    print("Starting CloakBrowser Stealth Engine inside Debian (Termux)...")
     
     launch_kwargs = {
         "headless": True,
@@ -14,79 +18,88 @@ async def run_update():
             "--no-sandbox", 
             "--disable-setuid-sandbox", 
             "--disable-dev-shm-usage",
-            "--allow-elevated-browser"
+            "--disable-gpu",
+            "--disable-software-rasterizer", # Forces CPU to do the rendering work
+            "--disable-gpu-rasterizer",
+            "--disable-gpu-sandbox",
+            "--no-zygote",
+            "--single-process", # Keeps everything in one process to avoid Android memory kills
+            "--disable-extensions",
+            "--no-first-run"
         ]
-    }
+    } 
+
+    try:
+        from cloakbrowser import launch_context_async
+    except ImportError:
+        print("Error: 'cloakbrowser' library not found.")
+        sys.exit(1) 
 
     context = await launch_context_async(**launch_kwargs)
     page = await context.new_page()
-    url = "https://freeiptv2023-d.ottc.xyz/?action=view"
+    url = "https://freeiptv2023-d.ottc.xyz/?action=view" 
 
     try:
-        print(f"🔗 Navigating to {url}")
+        print(f"Navigating to {url}")
         await page.goto(url, wait_until="domcontentloaded", timeout=60000)
         
-        print("⏳ Passing Turnstile...")
-        # انتظار بسيط للتأكد من رندر عناصر الصفحة الأساسية
-        await asyncio.sleep(5) 
-
-        print("⚡ Force-activating the button via JavaScript injection (Bypassing Freeze Timer)...")
-        # حقن كود جافا سكريبت لإزالة الحظر عن الزر فوراً وجعله قابلاً للضغط حتى لو تجمد العداد
-        await page.evaluate("""
-            const btn = document.querySelector('#create-btn');
-            if(btn) {
-                btn.removeAttribute('disabled');
-                btn.classList.remove('disabled');
-                console.log('Button forced active!');
-            }
-        """)
+        print("Waiting for Turnstile & Site Timer to unlock the button naturally...")
+        await page.wait_for_function(
+            "() => !document.querySelector('#create-btn').hasAttribute('disabled')",
+            timeout=60000
+        ) 
 
         await asyncio.sleep(2)
-        print("鼠标 Clicking Create Button...")
-        await page.click("#create-btn")
+        print("Clicking Create Button...")
+        await page.click("#create-btn") 
 
-        print("⏳ Waiting for page navigation and load state stability...")
-        await page.wait_for_load_state("domcontentloaded")
-        await asyncio.sleep(5)
-
-        print("⏳ Waiting for credentials fields...")
+        print("Waiting for credentials fields...")
         await page.wait_for_selector("input[readonly]", timeout=60000)
         inputs = await page.locator("input[readonly]").all()
         
         if len(inputs) >= 3:
             user = await inputs[1].get_attribute("value")
             pw = await inputs[2].get_attribute("value")
-            print(f"🎯 SUCCESS! Extracted User: {user}")
+            print(f"SUCCESS! Extracted User: {user}") 
 
-            current_dir = os.path.dirname(os.path.abspath(__file__)) if '__file__' in locals() else os.getcwd()
-            base_file = os.path.join(current_dir, "base.m3u")
-            final_file = os.path.join(current_dir, "final.m3u")
+            base_file = "/root/base/base.m3u"
+            final_file = "/root/base/final.m3u" 
 
-            if not os.path.exists(base_file):
-                print("📥 Fetching base.m3u directly from GitHub...")
-                raw_url = "https://raw.githubusercontent.com/MoFlow00/base/main/base.m3u"
-                urllib.request.urlretrieve(raw_url, base_file)
-
-            with open(base_file, "r", encoding="utf-8") as f:
-                content = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", pw)
-            with open(final_file, "w", encoding="utf-8") as f:
-                f.write(content)
-            print(f"📝 final.m3u updated successfully.")
-            
+            if os.path.exists(base_file):
+                with open(base_file, "r", encoding="utf-8") as f:
+                    content = f.read().replace("{USERNAME}", user).replace("{PASSWORD}", pw)
+                with open(final_file, "w", encoding="utf-8") as f:
+                    f.write(content)
+                print("final.m3u generated successfully.")
+                
+                print("Pushing updated final.m3u to GitHub...")
+                os.chdir("/root/base")
+                subprocess.run(["git", "config", "--local", "user.name", "Termux Debian Bot"], check=True)
+                subprocess.run(["git", "config", "--local", "user.email", "debian@termux.bot"], check=True)
+                subprocess.run(["git", "add", "final.m3u"], check=True)
+                
+                status = subprocess.run(["git", "-C", "/root/base", "commit", "-m", "Auto-update final.m3u via Termux Debian"], capture_output=True, text=True)
+                
+                if "nothing to commit" in status.stdout:
+                    print("No changes detected. Repository is already up to date.")
+                else:
+                    subprocess.run(["git", "push"], check=True)
+                    print("Successfully pushed to GitHub!")
+            else:
+                print(f"Warning: base.m3u not found at: {base_file}")
         else:
-            print("❌ Input fields structure mismatched.")
-            raise RuntimeError("Structure mismatched.")
+            print("Error: Input fields structure mismatched.") 
 
     except Exception as e:
-        print(f"❌ Error during execution: {e}")
+        print(f"Error during execution: {e}")
         try:
-            await page.screenshot(path="error_debug.png")
-            print("📸 Diagnostic screenshot saved.")
+            await page.screenshot(path="/root/base/error_debug.png")
+            print("Screenshot saved as error_debug.png")
         except:
             pass
         raise e
     finally:
-        await context.close()
+        await context.close() 
 
 if __name__ == "__main__":
     asyncio.run(run_update())
