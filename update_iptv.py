@@ -49,7 +49,7 @@ async def run_update():
 
         url = "https://freeiptv2023-d.ottc.xyz/?action=view"
 
-        print(f"Navigating to: {url}")
+        print(f"Opening URL: {url}")
 
         await page.goto(
             url,
@@ -57,13 +57,34 @@ async def run_update():
             timeout=90000
         )
 
-        print("Waiting timer unlock...")
+        print("Simulating human activity...")
 
-        await asyncio.sleep(15)
+        await page.bring_to_front()
+
+        await asyncio.sleep(2)
+
+        await page.mouse.move(300, 300)
+
+        await asyncio.sleep(1)
+
+        await page.mouse.move(500, 400)
+
+        await asyncio.sleep(1)
+
+        await page.mouse.wheel(0, 300)
+
+        await asyncio.sleep(1)
+
+        await page.mouse.move(400, 350)
+
+        await asyncio.sleep(10)
 
         print("Trying click...")
 
-        await page.click("#create-btn", force=True)
+        await page.click(
+            "#create-btn",
+            force=True
+        )
 
         print("Waiting credentials fields...")
 
