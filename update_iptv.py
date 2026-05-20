@@ -12,23 +12,6 @@ async def run_update():
     launch_kwargs = {
         "headless": False,
         "humanize": True,
-        "args": [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-software-rasterizer",
-            "--disable-gpu-sandbox",
-            "--disable-extensions",
-            "--disable-background-networking",
-            "--disable-background-timer-throttling",
-            "--disable-renderer-backgrounding",
-            "--disable-breakpad",
-            "--disable-sync",
-            "--no-first-run",
-            "--single-process",
-            "--no-zygote"
-        ]
     }
 
     try:
