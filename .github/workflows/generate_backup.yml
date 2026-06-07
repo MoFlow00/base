@@ -1,12 +1,12 @@
 name: Generate Backup IPTV
 
 on:
-workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-test:
-runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Test
-    run: echo "Hello"
+    steps:
+      - name: Test
+        run: echo "Hello"
