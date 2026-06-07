@@ -2,44 +2,11 @@ name: Generate Backup IPTV
 
 on:
 workflow_dispatch:
-inputs:
-username:
-description: IPTV Username
-required: true
-password:
-description: IPTV Password
-required: true
-
-permissions:
-contents: write
 
 jobs:
-generate:
+test:
 runs-on: ubuntu-latest
 
 steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v4
-
-  - name: Generate final2.m3u
-    env:
-      USERNAME: ${{ github.event.inputs.username }}
-      PASSWORD: ${{ github.event.inputs.password }}
-    run: |
-      cp base.m3u final2.m3u
-
-      sed -i "s/{USERNAME}/${USERNAME}/g" final2.m3u
-      sed -i "s/{PASSWORD}/${PASSWORD}/g" final2.m3u
-
-  - name: Commit Changes
-    run: |
-      git config user.name "github-actions"
-      git config user.email "github-actions@github.com"
-
-      git add final2.m3u
-
-      git diff --cached --quiet && exit 0
-
-      git commit -m "Update final2.m3u"
-
-      git push
+  - name: Test
+    run: echo "Hello"
