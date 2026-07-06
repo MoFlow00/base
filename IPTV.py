@@ -6,12 +6,12 @@ import requests
 import time
 from datetime import datetime
 
---- Configuration ---
+#--- Configuration ---
 BOT_TOKEN = "8843435187:AAGIrQnBPbsyXu959Oq95MGIvo92Q9JTeGM"
 CHAT_ID = "365163909"
 LOG_FILE = "/sdcard/Download/iptv_last_result.txt"
 
---- Telegram Notification Functions ---
+#--- Telegram Notification Functions ---
 def send_message(text):
 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
