@@ -8,9 +8,11 @@ from datetime import datetime
 import traceback # Import traceback for detailed error logging
 
 #--- Configuration ---
-BOT_TOKEN = "8843435187:AAGIrQnBPbsyXu959Oq95MGIvo92Q9JTeGM"
-CHAT_ID = "365163909"
-LOG_FILE = "/sdcard/Download/iptv_last_result.txt"
+# BOT_TOKEN and CHAT_ID should be passed as environment variables in GitHub Actions secrets.
+# Using os.getenv allows setting them via environment variables or falling back to defaults.
+BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_DEFAULT_BOT_TOKEN") # Replace with a placeholder or remove default
+CHAT_ID = os.getenv("CHAT_ID", "YOUR_DEFAULT_CHAT_ID")     # Replace with a placeholder or remove default
+LOG_FILE = "iptv_last_result.txt" # Changed to a relative path, suitable for GitHub Actions workspace
 
 #--- Telegram Notification Functions ---
 def send_message(text):
@@ -26,7 +28,7 @@ def send_message(text):
             time.sleep(2)
     return False
 
-os.environ["ELECTRON_DISABLE_GPU"] = "1"
+# os.environ["ELECTRON_DISABLE_GPU"] = "1" # This line is specific to Termux/Electron and not needed in GitHub Actions. Removed.
 
 async def run_update():
     start_time = datetime.now()
@@ -41,7 +43,8 @@ async def run_update():
     try:
         from cloakbrowser import launch_context_async
     except ImportError:
-        print("Error: cloakbrowser not found. Please ensure it's installed.")
+        print("Error: cloakbrowser not found. Please ensure it's installed in your GitHub Actions workflow.")
+        print("You might need `pip install cloakbrowser` and potentially `playwright install` if it's Playwright-based.")
         sys.exit(1)
 
     final_context = None # Initialize final_context outside the loop
@@ -52,7 +55,9 @@ async def run_update():
             try:
                 current_step = "Launch Browser"
                 print(f"[STEP] {current_step}")
-                final_context = await launch_context_async(headless=False, humanize=True)
+                # Changed headless=False to headless=True for GitHub Actions environment.
+                # GitHub Actions runners are typically headless Linux environments.
+                final_context = await launch_context_async(headless=True, humanize=True)
 
                 current_step = "Open Website"
                 print(f"[STEP] {current_step}")
@@ -79,7 +84,12 @@ async def run_update():
 
                 current_step = "Sync Git Repository"
                 print(f"[STEP] {current_step}")
-                os.chdir("/root/base")
+                # os.chdir("/root/base") # This path is specific to Termux. In GitHub Actions,
+                                        # the repository is cloned into the workspace.
+                                        # Assuming the script runs from the repository's root.
+                # Configure Git user for commits made by GitHub Actions
+                subprocess.run(["git", "config", "--global", "user.email", "actions@github.com"], check=True)
+                subprocess.run(["git", "config", "--global", "user.name", "GitHub Actions"], check=True)
                 subprocess.run(["git", "fetch", "origin"], check=True)
                 subprocess.run(["git", "reset", "--hard", "origin/main"], check=True)
 
@@ -89,6 +99,7 @@ async def run_update():
 
                 current_step = "Generate final.m3u"
                 print(f"[STEP] {current_step}")
+                # Assuming 'base.m3u' is in the same directory as the script or the repository root
                 with open("base.m3u", "r", encoding="utf-8") as f: content = f.read()
                 with open("final.m3u", "w", encoding="utf-8") as f: f.write(content.replace("{USERNAME}", username).replace("{PASSWORD}", pw))
 
@@ -101,6 +112,9 @@ async def run_update():
                 else:
                     current_step = "Git Push"
                     print(f"[STEP] {current_step}")
+                    # For pushing to GitHub, ensure your GitHub Actions workflow uses
+                    # `actions/checkout` with `persist-credentials: true` and a token
+                    # (e.g., `token: ${{ secrets.GITHUB_TOKEN }}`)
                     subprocess.run(["git", "push", "origin", "main"], check=True)
                     github_push_success = True
 
@@ -150,5 +164,5 @@ async def run_update():
     else:
         send_message(f"🚨 IPTV Update Failed\n\nFailure Step: {current_step}\nReason: {last_error}")
 
-if __name__ == "__main__": # Corrected __name__ syntax
+if __name__ == "__main__":
     asyncio.run(run_update())
