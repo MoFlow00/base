@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run:
+  update:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -22,12 +22,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests cloakbrowser
 
+      - name: Install Playwright Browsers
+        run: |
+          python -m playwright install chromium
+          python -m playwright install-deps
+
       - name: Show Python Version
-        run: python --version
+        run: |
+          python --version
 
       - name: Verify CloakBrowser
         run: |
           python -c "import cloakbrowser; print('CloakBrowser OK')"
 
       - name: Run Script
-        run: python IPTV.py
+        env:
+          CLOAKBROWSER_SUPPRESS_FONT_WARNING: "1"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python -u IPTV.py
