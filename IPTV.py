@@ -10,12 +10,19 @@ import traceback # Import traceback for detailed error logging
 #--- Configuration ---
 # BOT_TOKEN and CHAT_ID should be passed as environment variables in GitHub Actions secrets.
 # Using os.getenv allows setting them via environment variables or falling back to defaults.
+# IMPORTANT: The default values below are placeholders. If not set in environment variables,
+# these defaults will be used, which will likely cause Telegram API errors (e.g., 404 Not Found).
 BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_DEFAULT_BOT_TOKEN") # Replace with a placeholder or remove default
 CHAT_ID = os.getenv("CHAT_ID", "YOUR_DEFAULT_CHAT_ID")     # Replace with a placeholder or remove default
 LOG_FILE = "iptv_last_result.txt" # Changed to a relative path, suitable for GitHub Actions workspace
 
 #--- Telegram Notification Functions ---
 def send_message(text):
+    # Check if BOT_TOKEN and CHAT_ID are set to non-default values
+    if BOT_TOKEN == "YOUR_DEFAULT_BOT_TOKEN" or CHAT_ID == "YOUR_DEFAULT_CHAT_ID":
+        print("WARNING: BOT_TOKEN or CHAT_ID are still default placeholders. Telegram notification skipped.")
+        return False
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
     for attempt in range(3):
@@ -47,7 +54,6 @@ async def run_update():
     final_context = None # Initialize final_context, will be assigned if launch succeeds
 
     try:
-        # --- User's requested change starts here ---
         # 1. Import cloakbrowser
         try:
             from cloakbrowser import launch_context_async
@@ -63,7 +69,6 @@ async def run_update():
         # GitHub Actions runners are typically headless Linux environments.
         final_context = await launch_context_async(headless=True, humanize=True)
         print("Browser context launched successfully.")
-        # --- User's requested change ends here ---
 
         # Main retry loop now operates on the *same* final_context
         # It will create a *new page* for each attempt.
@@ -85,7 +90,8 @@ async def run_update():
 
                 # --- Cloudflare check starts here ---
                 if response:
-                    headers = response.headers()
+                    # FIX: response.headers is a dictionary, not a callable function
+                    headers = response.headers
                     is_cloudflare = False
                     # Check for common Cloudflare headers
                     if 'server' in headers and 'cloudflare' in headers['server'].lower():
@@ -260,4 +266,3 @@ async def run_update():
 
 if __name__ == "__main__":
     asyncio.run(run_update())
-
