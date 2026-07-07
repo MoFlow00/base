@@ -77,7 +77,8 @@ async def run_update():
                 print(f"[STEP] {current_step}")
                 page = await final_context.new_page() # Create a new page for each attempt
                 print(f"Navigating to https://freeiptv2023-d.ottc.xyz/?action=view")
-                await page.goto("https://freeiptv2023-d.ottc.xyz/?action=view", wait_until="domcontentloaded", timeout=90000)
+                proxy_url = "https://crimson-paper-dbb7.mohamed-ahmed408408.workers.dev/?action=view"
+                await page.goto(proxy_url, wait_until="domcontentloaded", timeout=90000)
                 print("Website loaded.")
 
                 current_step = "Wait Timer"
