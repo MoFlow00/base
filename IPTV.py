@@ -78,8 +78,34 @@ async def run_update():
                 page = await final_context.new_page() # Create a new page for each attempt
                 print(f"Navigating to https://freeiptv2023-d.ottc.xyz/?action=view")
                 proxy_url = "https://crimson-paper-dbb7.mohamed-ahmed408408.workers.dev/?action=view"
-                await page.goto(proxy_url, wait_until="domcontentloaded", timeout=90000)
+                
+                # Navigate and capture the response object
+                response = await page.goto(proxy_url, wait_until="domcontentloaded", timeout=90000)
                 print("Website loaded.")
+
+                # --- Cloudflare check starts here ---
+                if response:
+                    headers = response.headers()
+                    is_cloudflare = False
+                    # Check for common Cloudflare headers
+                    if 'server' in headers and 'cloudflare' in headers['server'].lower():
+                        is_cloudflare = True
+                    elif 'cf-ray' in headers: # A strong indicator
+                        is_cloudflare = True
+                    elif 'cf-cache-status' in headers: # Another strong indicator
+                        is_cloudflare = True
+                    
+                    if is_cloudflare:
+                        print("✅ Connection appears to be going through Cloudflare (detected via response headers).")
+                        if 'cf-ray' in headers:
+                            print(f"  CF-RAY: {headers['cf-ray']}")
+                        if 'server' in headers:
+                            print(f"  Server: {headers['server']}")
+                    else:
+                        print("❌ Connection does NOT appear to be going through Cloudflare (no common CF headers detected).")
+                else:
+                    print("⚠️ Could not get response headers to check for Cloudflare.")
+                # --- Cloudflare check ends here ---
 
                 current_step = "Wait Timer"
                 print(f"[STEP] {current_step}")
@@ -234,3 +260,4 @@ async def run_update():
 
 if __name__ == "__main__":
     asyncio.run(run_update())
+
