@@ -33,6 +33,7 @@ def send_message(text):
 
 async def run_update():
     start_time = datetime.now()
+
     current_step = "Initialization"
     script_success = False
     no_changes = False
@@ -43,30 +44,38 @@ async def run_update():
 
     print(f"[START] Script started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    try:
-        from cloakbrowser import launch_context_async
-    except ImportError:
-        print("Error: cloakbrowser not found. Please ensure it's installed in your GitHub Actions workflow.")
-        print("You might need `pip install cloakbrowser` and potentially `playwright install` if it's Playwright-based.")
-        sys.exit(1)
-
-    final_context = None # Initialize final_context outside the loop
+    final_context = None # Initialize final_context, will be assigned if launch succeeds
 
     try:
+        # --- User's requested change starts here ---
+        # 1. Import cloakbrowser
+        try:
+            from cloakbrowser import launch_context_async
+        except ImportError:
+            print("Error: cloakbrowser not found. Please ensure it's installed in your GitHub Actions workflow.")
+            print("You might need `pip install cloakbrowser` and potentially `playwright install` if it's Playwright-based.")
+            sys.exit(1) # Critical dependency failure, exit immediately
+
+        # 2. Launch browser context once at the beginning
+        current_step = "Launch Browser"
+        print(f"[STEP] {current_step}")
+        # Changed headless=False to headless=True for GitHub Actions environment.
+        # GitHub Actions runners are typically headless Linux environments.
+        final_context = await launch_context_async(headless=True, humanize=True)
+        print("Browser context launched successfully.")
+        # --- User's requested change ends here ---
+
+        # Main retry loop now operates on the *same* final_context
+        # It will create a *new page* for each attempt.
         for attempt_num in range(1, 4):
             attempts_used = attempt_num
             print(f"\n[ATTEMPT {attempt_num}/3] Starting update attempt...")
-            try:
-                current_step = "Launch Browser"
-                print(f"[STEP] {current_step}")
-                # Changed headless=False to headless=True for GitHub Actions environment.
-                # GitHub Actions runners are typically headless Linux environments.
-                final_context = await launch_context_async(headless=True, humanize=True)
-                print("Browser context launched successfully.")
+            page = None # Initialize page for finally block scope
 
+            try:
                 current_step = "Open Website"
                 print(f"[STEP] {current_step}")
-                page = await final_context.new_page()
+                page = await final_context.new_page() # Create a new page for each attempt
                 print(f"Navigating to https://freeiptv2023-d.ottc.xyz/?action=view")
                 await page.goto("https://freeiptv2023-d.ottc.xyz/?action=view", wait_until="domcontentloaded", timeout=90000)
                 print("Website loaded.")
@@ -164,16 +173,24 @@ async def run_update():
                 else:
                     raise # Re-raise on final attempt failure
             finally:
-                if final_context:
-                    print("Closing browser context...")
-                    await final_context.close()
-                    final_context = None # Reset for next attempt if needed, or ensure it's closed
-                    print("Browser context closed.")
+                # Close the page after each attempt, if it was opened
+                if page and not page.is_closed():
+                    print("Closing page...")
+                    await page.close()
+                    print("Page closed.")
 
     except Exception as e:
-        # This catches exceptions re-raised from the inner loop or critical failures outside it
+        # This catches exceptions from launch_context_async or re-raised from the retry loop
         last_error = traceback.format_exc()
         print(f"Critical Failure at {current_step}: {e}\n{last_error}")
+        script_success = False # Ensure script_success is False on critical failure
+
+    finally:
+        # This ensures the browser context is closed at the very end of the function
+        if final_context:
+            print("Closing browser context...")
+            await final_context.close()
+            print("Browser context closed.")
 
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
