@@ -49,3 +49,4 @@ jobs:
           name: debug
           path: |
             after_click.png
+            page.html
