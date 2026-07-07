@@ -90,9 +90,16 @@ async def run_update():
                 print(f"[STEP] {current_step}")
                 print("Clicking '#create-btn'...")
                 await page.click("#create-btn", force=True)
-                await page.wait_for_load_state("networkidle") # Added as per request
-                await page.screenshot(path="after_click.png", full_page=True) # Added as per request
-                print(await page.content()) # Added as per request
+                await asyncio.sleep(5) # Added sleep
+                await page.screenshot( # Added screenshot
+                    path="after_click.png",
+                    full_page=True
+                )
+                print(await page.title()) # Added print title
+                print(page.url) # Added print URL
+                html = await page.content() # Added content capture
+                with open("page.html", "w", encoding="utf-8") as f: # Added content save
+                    f.write(html)
                 await page.wait_for_selector("input[readonly]", timeout=90000)
                 print("Create button clicked and input fields appeared.")
 
