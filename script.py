@@ -7,7 +7,7 @@ import os
 
 def get_account():
     options = uc.ChromeOptions()
-    options.add_argument('--headless')          # headless is required on GitHub
+    options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
@@ -18,17 +18,14 @@ def get_account():
         driver.get("https://freeiptv2023-d.ottc.xyz/index.php")
         print("Page loaded. Waiting for button to become enabled...")
 
-        # Wait up to 120 seconds for the button to be clickable
         wait = WebDriverWait(driver, 120)
         create_btn = wait.until(EC.element_to_be_clickable((By.ID, "create-btn")))
         create_btn.click()
         print("Button clicked!")
 
-        # Wait for account info
         wait.until(EC.presence_of_element_located((By.ID, "accUser")))
         print("Account info loaded.")
 
-        # Extract details
         username = driver.find_element(By.ID, "accUser").get_attribute("value")
         password = driver.find_element(By.ID, "accPass").get_attribute("value")
         server = driver.find_element(By.ID, "serverUrl").get_attribute("value")
