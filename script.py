@@ -6,6 +6,8 @@ import time
 import os
 
 def get_account():
+    # تأكد من إصدار Chrome الموجود في الرانر (149 حالياً)
+    # لو تغير في المستقبل، غيّر الرقم أو اتركه بدون تحديد
     options = uc.ChromeOptions()
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
@@ -13,25 +15,27 @@ def get_account():
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-blink-features=AutomationControlled')
 
-    # تحديد إصدار Chrome الرئيسي ليتطابق مع الموجود في الرانر (149)
-    # يمكنك أيضاً تركها فارغة لتجربة automatic، لكن الأفضل تحديدها
+    # تحديد الإصدار الرئيسي ليتطابق مع Chrome 149
     driver = uc.Chrome(options=options, version_main=149)
-    
+
     try:
+        print("1️⃣ جارٍ تحميل الصفحة...")
         driver.get("https://freeiptv2023-d.ottc.xyz/index.php")
-        print("Page loaded. Taking screenshot...")
-        driver.save_screenshot("page_loaded.png")
-        print("Screenshot saved as page_loaded.png")
-        
-        print("Waiting for button to become enabled...")
-        wait = WebDriverWait(driver, 120)
+        driver.save_screenshot("1_page_loaded.png")
+        print("✅ تم تحميل الصفحة (تم حفظ لقطة: 1_page_loaded.png)")
+
+        # ننتظر قليلاً لنرى هل تظهر الكابتشا (لكننا لن نحلها)
+        print("2️⃣ في انتظار تفعيل الزر (كابتشا غير محلولة)...")
+        wait = WebDriverWait(driver, 30)  # 30 ثانية فقط للتجربة
         create_btn = wait.until(EC.element_to_be_clickable((By.ID, "create-btn")))
         create_btn.click()
-        print("Button clicked!")
+        print("✅ تم الضغط على الزر (غير متوقع أن يحدث)")
 
+        # لو حدث وضغطنا، ننتظر بيانات الحساب
         wait.until(EC.presence_of_element_located((By.ID, "accUser")))
-        print("Account info loaded.")
+        print("✅ تم تحميل بيانات الحساب.")
 
+        # استخراج البيانات
         username = driver.find_element(By.ID, "accUser").get_attribute("value")
         password = driver.find_element(By.ID, "accPass").get_attribute("value")
         server = driver.find_element(By.ID, "serverUrl").get_attribute("value")
@@ -41,16 +45,18 @@ def get_account():
 
         with open("iptv_account.txt", "w") as f:
             f.write(f"Server URL: {server}\nUsername: {username}\nPassword: {password}\nM3U: {m3u}\nActivation: {activation}\nExpiration: {expiration}\n")
-
-        print("Credentials saved.")
+        print("💾 تم حفظ البيانات في iptv_account.txt")
 
     except Exception as e:
-        print(f"Error: {e}")
-        driver.save_screenshot("error.png")
-        with open("page_source.html", "w", encoding="utf-8") as f:
+        print(f"❌ حدث خطأ (كما هو متوقع بسبب الكابتشا): {e}")
+        driver.save_screenshot("2_error.png")
+        with open("3_page_source.html", "w", encoding="utf-8") as f:
             f.write(driver.page_source)
+        print("📸 تم حفظ لقطة للخطأ ومصدر الصفحة.")
+
     finally:
         driver.quit()
+        print("🏁 تم إغلاق المتصفح.")
 
 if __name__ == "__main__":
     get_account()
