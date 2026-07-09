@@ -1,43 +1,42 @@
-name: Free IPTV (GitHub Actions)
+name: تجربة IPTV على GitHub Actions
 
 on:
-  schedule:
-    - cron: '0 */6 * * *'   # 每6小时运行一次
-  workflow_dispatch:         # 手动触发
+  workflow_dispatch:    # تشغيل يدوي
 
 jobs:
-  get-account:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: تثبيت Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install system dependencies
+      - name: تثبيت الاعتماديات (xvfb + Chrome)
         run: |
           sudo apt update
           sudo apt install -y xvfb
+          google-chrome --version   # للتأكد من الإصدار
 
-      - name: Install Python packages
+      - name: تثبيت مكتبات Python
         run: |
-          pip install setuptools          # 提供 distutils
-          pip install undetected-chromedriver==3.5.4   # 稳定版本
+          pip install setuptools
+          pip install undetected-chromedriver==3.5.4
           pip install selenium
 
-      - name: Run script with xvfb
+      - name: تشغيل السكربت مع xvfb
         run: |
           xvfb-run python script.py
-        continue-on-error: true   # 即使失败也继续收集 artifacts
+        continue-on-error: true    # نكمل حتى لو فشل السكربت
 
-      - name: Upload debugging artifacts
+      - name: رفع المخرجات (لقطات، المصدر، النتيجة)
         uses: actions/upload-artifact@v4
         with:
-          name: debug
+          name: debug-output
           path: |
-            error.png
-            page_source.html
-            iptv_account.txt
+            *.png
+            *.html
+            *.txt
           if-no-files-found: ignore
