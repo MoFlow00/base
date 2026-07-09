@@ -1,7 +1,7 @@
-name: IPTV Auto (مع الملف التعريفي)
+name: IPTV Auto with Minimal Profile
 
 on:
-  workflow_dispatch:   # تشغيل يدوي أو جدولة
+  workflow_dispatch:
 
 jobs:
   run:
@@ -9,33 +9,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: تثبيت xvfb و Chrome
+      - name: Install xvfb and Chrome
         run: |
           sudo apt update
           sudo apt install -y xvfb
 
-      - name: تثبيت Python والمكتبات
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: |
+
+      - name: Install dependencies
+        run: |
           pip install setuptools
           pip install undetected-chromedriver==3.5.4
           pip install selenium
 
-      - name: فك ضغط الملف التعريفي
-        run: |
-          unzip -o profile.zip -d ./chrome_profile
-
-      - name: تشغيل السكربت (مع xvfb)
+      - name: Run script with xvfb
         run: |
           xvfb-run python run.py
         continue-on-error: true
 
-      - name: رفع النتائج
+      - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: output
+          name: iptv-account
           path: |
             iptv_account.txt
             *.png
