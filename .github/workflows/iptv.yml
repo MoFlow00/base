@@ -2,8 +2,8 @@ name: Free IPTV (GitHub Actions)
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # every 6 hours – adjust as needed
-  workflow_dispatch:         # manual trigger
+    - cron: '0 */6 * * *'   # 每6小时运行一次
+  workflow_dispatch:         # 手动触发
 
 jobs:
   get-account:
@@ -16,23 +16,23 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install system dependencies (xvfb, Chrome)
+      - name: Install system dependencies
         run: |
           sudo apt update
           sudo apt install -y xvfb
-          # Chrome is preinstalled on GitHub runners, but we can ensure it's there
-          google-chrome --version
 
       - name: Install Python packages
         run: |
-          pip install undetected-chromedriver selenium
+          pip install setuptools          # 提供 distutils
+          pip install undetected-chromedriver==3.5.4   # 稳定版本
+          pip install selenium
 
       - name: Run script with xvfb
         run: |
           xvfb-run python script.py
-        continue-on-error: true   # allow us to collect artifacts even if script fails
+        continue-on-error: true   # 即使失败也继续收集 artifacts
 
-      - name: Upload debugging artifacts (if any)
+      - name: Upload debugging artifacts
         uses: actions/upload-artifact@v4
         with:
           name: debug
