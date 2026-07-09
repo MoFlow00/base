@@ -13,11 +13,17 @@ def get_account():
     options.add_argument('--disable-gpu')
     options.add_argument('--disable-blink-features=AutomationControlled')
 
-    driver = uc.Chrome(options=options)
+    # تحديد إصدار Chrome الرئيسي ليتطابق مع الموجود في الرانر (149)
+    # يمكنك أيضاً تركها فارغة لتجربة automatic، لكن الأفضل تحديدها
+    driver = uc.Chrome(options=options, version_main=149)
+    
     try:
         driver.get("https://freeiptv2023-d.ottc.xyz/index.php")
-        print("Page loaded. Waiting for button to become enabled...")
-
+        print("Page loaded. Taking screenshot...")
+        driver.save_screenshot("page_loaded.png")
+        print("Screenshot saved as page_loaded.png")
+        
+        print("Waiting for button to become enabled...")
         wait = WebDriverWait(driver, 120)
         create_btn = wait.until(EC.element_to_be_clickable((By.ID, "create-btn")))
         create_btn.click()
