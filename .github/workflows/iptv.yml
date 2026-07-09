@@ -1,42 +1,41 @@
-name: تجربة IPTV على GitHub Actions
+name: IPTV Auto (مع الملف التعريفي)
 
 on:
-  workflow_dispatch:    # تشغيل يدوي
+  workflow_dispatch:   # تشغيل يدوي أو جدولة
 
 jobs:
-  test:
+  run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: تثبيت Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: تثبيت الاعتماديات (xvfb + Chrome)
+      - name: تثبيت xvfb و Chrome
         run: |
           sudo apt update
           sudo apt install -y xvfb
-          google-chrome --version   # للتأكد من الإصدار
 
-      - name: تثبيت مكتبات Python
-        run: |
+      - name: تثبيت Python والمكتبات
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
           pip install setuptools
           pip install undetected-chromedriver==3.5.4
           pip install selenium
 
-      - name: تشغيل السكربت مع xvfb
+      - name: فك ضغط الملف التعريفي
         run: |
-          xvfb-run python script.py
-        continue-on-error: true    # نكمل حتى لو فشل السكربت
+          unzip -o profile.zip -d ./chrome_profile
 
-      - name: رفع المخرجات (لقطات، المصدر، النتيجة)
+      - name: تشغيل السكربت (مع xvfb)
+        run: |
+          xvfb-run python run.py
+        continue-on-error: true
+
+      - name: رفع النتائج
         uses: actions/upload-artifact@v4
         with:
-          name: debug-output
+          name: output
           path: |
+            iptv_account.txt
             *.png
-            *.html
-            *.txt
-          if-no-files-found: ignore
