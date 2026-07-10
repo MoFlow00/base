@@ -1,0 +1,44 @@
+name: IPTV Auto Update
+
+on:
+  schedule:
+    # يعمل يومياً الساعة 1:00 صباحاً بالتوقيت العالمي (توقيت مناسب للتجديد كل 24 ساعة)
+    - cron: '0 1 * * *'
+  workflow_dispatch: # يتيح لك زر التشغيل اليدوي للتجربة الآن من موقع GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install System Dependencies (Xvfb)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm-dev
+
+      - name: Install Python Packages
+        run: |
+          pip install requests cloakbrowser playwright playwright-stealth
+          playwright install chromium
+
+      - name: Run IPTV Update Script inside Xvfb
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: xvfb-run -a python update_iptv.py
+
+      - name: Push final.m3u changes to GitHub
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          git add final.m3u
+          # إذا لم يكن هناك تغيير، لن يفشل الـ Workflow بفضل || echo
+          git commit -m "Auto update final.m3u via GitHub Actions [Skip CI]" || echo "No changes to commit"
+          git push origin main
