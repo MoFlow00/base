@@ -2,9 +2,9 @@ name: IPTV Auto Update
 
 on:
   schedule:
-    # يعمل يومياً الساعة 1:00 صباحاً بالتوقيت العالمي (توقيت مناسب للتجديد كل 24 ساعة)
+    # يعمل يومياً في تمام الساعة 01:00 صباحاً بتوقيت UTC
     - cron: '0 1 * * *'
-  workflow_dispatch: # يتيح لك زر التشغيل اليدوي للتجربة الآن من موقع GitHub
+  workflow_dispatch: # يتيح لك زر "Run workflow" للتشغيل اليدوي في أي وقت
 
 jobs:
   build:
@@ -21,17 +21,18 @@ jobs:
       - name: Install System Dependencies (Xvfb)
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgbm-dev
+          sudo apt-get install -y xvfb libgbm-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2
 
       - name: Install Python Packages
         run: |
-          pip install requests cloakbrowser playwright playwright-stealth
+          pip install requests cloakbrowser playwright
           playwright install chromium
 
       - name: Run IPTV Update Script inside Xvfb
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.CHAT_ID }}
+        # تشغيل السكريبت عبر شاشة وهمية لتجاوز حماية المتصفح
         run: xvfb-run -a python update_iptv.py
 
       - name: Push final.m3u changes to GitHub
@@ -39,6 +40,6 @@ jobs:
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
           git add final.m3u
-          # إذا لم يكن هناك تغيير، لن يفشل الـ Workflow بفضل || echo
-          git commit -m "Auto update final.m3u via GitHub Actions [Skip CI]" || echo "No changes to commit"
+          # التأكد من عمل كوميت فقط في حالة وجود تغييرات حقيقية
+          git commit -m "Auto update final.m3u via GitHub Actions" || echo "No changes to commit"
           git push origin main
