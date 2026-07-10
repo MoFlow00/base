@@ -432,9 +432,19 @@ async def run_update():
 
 
 
-                            # Add the file
+                            # Add all changes
 
-                            subprocess.run(["git", "add", "-A"], check=True, capture_output=True, text=True)
+                            subprocess.run(
+
+                                ["git", "add", "-A"],
+
+                                check=True,
+
+                                capture_output=True,
+
+                                text=True
+
+                            )
 
 
 
@@ -442,17 +452,13 @@ async def run_update():
 
                             commit_status = subprocess.run(
 
-                                [
-
-                                    "git", "commit", "-m", "Auto update final.m3u"
-
-                                ],
+                                ["git", "commit", "-m", "Auto update final.m3u"],
 
                                 capture_output=True,
 
                                 text=True,
 
-                                check=False # Don't raise error for no changes
+                                check=False
 
                             )
 
@@ -462,23 +468,75 @@ async def run_update():
 
 
 
-                            if "nothing to commit" in output or "nothing added to commit" in output:
+                            if (
+
+                                "nothing to commit" in output
+
+                                or "nothing added to commit" in output
+
+                            ):
 
                                 print("No changes detected, no commit needed.")
 
-                                github_push_success = True # Consider it a success if nothing to commit
+                                github_push_success = True
+
+
 
                             elif commit_status.returncode != 0:
 
-                                raise Exception(f"Git commit failed: {commit_status.stderr.strip()}")
+                                raise Exception(
+
+                                    f"Git commit failed: {commit_status.stderr.strip()}"
+
+                                )
+
+
 
                             else:
 
                                 print("Changes committed.")
 
-                                # Push changes
 
-                                push_status = subprocess.run(["git", "push"], capture_output=True, text=True, check=False)
+
+                                # Sync with remote first
+
+                                pull_status = subprocess.run(
+
+                                    ["git", "pull", "--rebase", "origin", "main"],
+
+                                    capture_output=True,
+
+                                    text=True,
+
+                                    check=False
+
+                                )
+
+
+
+                                if pull_status.returncode != 0:
+
+                                    raise Exception(
+
+                                        f"Git pull failed: {pull_status.stderr.strip()}"
+
+                                    )
+
+
+
+                                # Push
+
+                                push_status = subprocess.run(
+
+                                    ["git", "push", "origin", "main"],
+
+                                    capture_output=True,
+
+                                    text=True,
+
+                                    check=False
+
+                                )
 
 
 
@@ -490,39 +548,37 @@ async def run_update():
 
                                 else:
 
-                                    raise Exception(f"Git push failed: {push_status.stderr.strip()}")
+                                    raise Exception(
 
-                                # Push changes
+                                        f"Git push failed: {push_status.stderr.strip()}"
 
-                                push_status = subprocess.run([
-
-                                    "git", "push"
-
-                                ], capture_output=True, text=True, check=False)
+                                    )
 
 
-
-                                if push_status.returncode == 0:
-
-                                    print("GitHub push success")
-
-                                    github_push_success = True
-
-                                else:
-
-                                    raise Exception(f"Git push failed: {push_status.stderr.strip()}")
 
                         except subprocess.CalledProcessError as git_e:
 
-                            raise Exception(f"Git command failed: {git_e.cmd} -> {git_e.stderr.strip()}")
+                            raise Exception(
+
+                                f"Git command failed: {git_e.cmd} -> {git_e.stderr.strip()}"
+
+                            )
+
+
 
                         except Exception as git_e:
 
-                            raise Exception(f"An error occurred during Git operations: {git_e}")
+                            raise Exception(
+
+                                f"An error occurred during Git operations: {git_e}"
+
+                            )
+
+
 
                         finally:
 
-                            os.chdir(original_cwd) # Restore original CWD
+                            os.chdir(original_cwd)
 
 
 
@@ -637,4 +693,3 @@ if __name__ == "__main__":
     except Exception as main_e:
 
         print(f"Script terminated with an unhandled error: {main_e}")
-
