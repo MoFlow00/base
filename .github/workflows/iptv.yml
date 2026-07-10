@@ -27,8 +27,8 @@ jobs:
         run: |
           pip install requests cloakbrowser playwright
           playwright install chromium
-          # السحر هنا: أمر رسمي يقوم بتثبيت كافة حزم النظام المطلوبة للمتصفح تلقائياً
-          sudo playwright install-deps
+          # الحل هنا: استدعاء الحزم عبر مسار البايثون النشط ليتعرف عليه الـ sudo
+          sudo $(which python) -m playwright install-deps
 
       - name: Run IPTV Update Script inside Xvfb
         env:
