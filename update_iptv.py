@@ -5,7 +5,6 @@ import sys
 import requests
 import random
 from datetime import datetime
-from playwright_stealth import stealth
 
 # --- Configuration (جلب البيانات آلياً من الـ Secrets) ---
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "8843435187:AAGIrQnBPbsyXu959Oq95MGIvo92Q9JTeGM")
@@ -59,8 +58,8 @@ async def run_update():
     send_message("🚀 IPTV GitHub Action Job Started")
 
     launch_kwargs = {
-        "headless": True,  # يجب أن تكون True ويتم تغذيتها عبر xvfb-run رسومياً
-        "humanize": True,
+        "headless": True,  # يتم تغذيتها عبر xvfb-run رسومياً لتظهر كـ False للموقع
+        "humanize": True,  # ميزة التخفي البشري المدمجة في CloakBrowser
     }
 
     try:
@@ -86,8 +85,7 @@ async def run_update():
                 final_context = context
                 page = await context.new_page()
 
-                # دمج حزمة التخفي من التتبع
-                await stealth(page)
+                # إعدادات إضافية قياسية لتحديث الـ User-Agent وإخفاء الـ Webdriver بدون مكتبات خارجية
                 await page.set_extra_http_headers({
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
                 })
@@ -97,10 +95,10 @@ async def run_update():
                 print(f"[Browser] Navigating to: {url}")
                 await page.goto(url, wait_until="networkidle", timeout=90000)
 
-                # انتظار عشوائي للتمويه البشري
+                # انتظار عشوائي محاكي للبشر
                 await asyncio.sleep(random.uniform(12, 16))
 
-                # فحص محتوى الصفحة لسيناريوهات إعادة التحميل
+                # فحص محتوى الصفحة وإعادة المحاولة عند الحاجة
                 for reload_check in range(1, 4):
                     content = await page.content()
                     needs_reload = False
@@ -180,7 +178,4 @@ async def run_update():
             send_message(f"✅ <b>IPTV Updated Successfully on GitHub Server</b>\nAttempts Used: {attempts_used}")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(run_update())
-    except Exception as main_e:
-        print(f"[Fatal] Terminated: {main_e}")
+    asyncio.run(run_update())
