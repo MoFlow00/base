@@ -58,8 +58,8 @@ async def run_update():
     send_message("🚀 IPTV GitHub Action Job Started")
 
     launch_kwargs = {
-        "headless": True,  # يتم تغذيتها عبر xvfb-run رسومياً لتظهر كـ False للموقع
-        "humanize": True,  # ميزة التخفي البشري المدمجة في CloakBrowser
+        "headless": True,  
+        "humanize": True,  
     }
 
     try:
@@ -85,7 +85,6 @@ async def run_update():
                 final_context = context
                 page = await context.new_page()
 
-                # إعدادات إضافية قياسية لتحديث الـ User-Agent وإخفاء الـ Webdriver بدون مكتبات خارجية
                 await page.set_extra_http_headers({
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
                 })
@@ -93,10 +92,12 @@ async def run_update():
 
                 url = "https://freeiptv2023-d.ottc.xyz/?action=view"
                 print(f"[Browser] Navigating to: {url}")
-                await page.goto(url, wait_until="networkidle", timeout=90000)
+                
+                # التعديل هنا: العودة إلى domcontentloaded لتجنب التعليق بسبب الإعلانات
+                await page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-                # انتظار عشوائي محاكي للبشر
-                await asyncio.sleep(random.uniform(12, 16))
+                # انتظار ثابت ومستقر بعد التحميل الأولي
+                await asyncio.sleep(15)
 
                 # فحص محتوى الصفحة وإعادة المحاولة عند الحاجة
                 for reload_check in range(1, 4):
@@ -118,8 +119,8 @@ async def run_update():
 
                     if needs_reload and reload_check < 3:
                         print(f"[Browser] Anti-bot screen detected, reloading ({reload_check}/3)...")
-                        await page.reload(wait_until="networkidle", timeout=90000)
-                        await asyncio.sleep(15)
+                        await page.reload(wait_until="domcontentloaded", timeout=60000)
+                        await asyncio.sleep(12)
                     else:
                         break
 
@@ -127,7 +128,7 @@ async def run_update():
                 await page.click("#create-btn", force=True)
 
                 print("[Browser] Waiting for read-only credentials inputs...")
-                await page.wait_for_selector("input[readonly]", timeout=90000)
+                await page.wait_for_selector("input[readonly]", timeout=60000)
 
                 inputs = await page.locator("input[readonly]").all()
                 print(f"[Browser] Inputs found: {len(inputs)}")
