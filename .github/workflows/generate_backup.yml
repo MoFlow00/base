@@ -21,25 +21,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Generate final2.m3u
+      - name: Generate final.m3u & final1.m3u
         env:
           USERNAME: ${{ github.event.inputs.username }}
           PASSWORD: ${{ github.event.inputs.password }}
         run: |
-          cp base.m3u final2.m3u
+          for file in final.m3u final1.m3u; do
+            cp base.m3u "$file"
 
-          sed -i "s/{USERNAME}/${USERNAME}/g" final2.m3u
-          sed -i "s/{PASSWORD}/${PASSWORD}/g" final2.m3u
+            sed -i "s/{USERNAME}/${USERNAME}/g" "$file"
+            sed -i "s/{PASSWORD}/${PASSWORD}/g" "$file"
+          done
 
       - name: Commit Changes
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
-          git add final2.m3u
+          git add final.m3u final1.m3u
 
           git diff --cached --quiet && exit 0
 
-          git commit -m "Update final2.m3u"
+          git commit -m "Update final.m3u and final1.m3u"
 
           git push
