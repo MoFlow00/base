@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Schedule Delay Trigger via QStash
         run: |
-          curl -X POST "https://qstash.upstash.io/v2/publish/${{ secrets.AUTOMATE_WEBHOOK_URL }}" \
+          curl -X POST "https://qstash-us-east-1.upstash.io/v2/publish/${{ secrets.AUTOMATE_WEBHOOK_URL }}" \
                -H "Authorization: Bearer ${{ secrets.QSTASH_TOKEN }}" \
                -H "Upstash-Delay: 86400s" \
                -H "Content-Type: application/json" \
