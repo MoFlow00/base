@@ -2,8 +2,8 @@ name: Schedule Next IPTV Run
 
 on:
   push:
-    paths:
-      - 'final.m3u' # يعمل فقط وفوراً عند تعديل ملف القنوات
+    branches:
+      - main
 
 jobs:
   schedule-trigger:
@@ -11,7 +11,6 @@ jobs:
     steps:
       - name: Schedule Delay Trigger via QStash
         run: |
-          # يرسل أمر إيقاظ مؤجل 24 ساعة (86400 ثانية) لهاتفك
           curl -X POST "https://qstash.upstash.io/v2/publish/${{ secrets.AUTOMATE_WEBHOOK_URL }}" \
                -H "Authorization: Bearer ${{ secrets.QSTASH_TOKEN }}" \
                -H "Upstash-Delay: 86400s" \
